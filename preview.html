@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Plaza Performance Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body {
+    font-family: Arial;
+    background:#f4f6f9;
+    padding:20px;
+}
+
+h1 { margin-bottom:10px; }
+
+.upload-box {
+    background:white;
+    padding:15px;
+    margin-bottom:20px;
+    border-radius:8px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+.filters {
+    display:flex;
+    gap:15px;
+    margin-bottom:20px;
+}
+
+select {
+    padding:8px;
+    min-width:180px;
+}
+
+.cards {
+    display:flex;
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.card {
+    flex:1;
+    background:white;
+    padding:15px;
+    border-radius:8px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+.card h3 {
+    margin:0;
+    font-size:14px;
+    color:gray;
+}
+
+.card p {
+    font-size:22px;
+    margin-top:5px;
+    font-weight:bold;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+}
+
+th, td {
+    padding:8px;
+    border-bottom:1px solid #ddd;
+    text-align:left;
+}
+
+th {
+    background:#2c3e50;
+    color:white;
+}
+
+tr:hover { background:#f1f1f1; }
+
+.hidden { display:none; }
+
+</style>
+</head>
+
+<body>
+
+<h1>📊 Plaza Performance Dashboard</h1>
+
+<div class="upload-box">
+    <input type="file" id="fileInput" accept=".xls,.xlsx">
+</div>
+
+<div id="dashboard" class="hidden">
+
+<div class="filters">
+    <select id="areaFilter"><option value="">All Areas</option></select>
+    <select id="divisionFilter"><option value="">All Divisions</option></select>
+    <select id="plazaFilter"><option value="">All Plazas</option></select>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <h3>Total Plazas</h3>
+        <p id="totalPlazas">0</p>
+    </div>
+    <div class="card">
+        <h3>Average Achievement %</h3>
+        <p id="avgAchv">0%</p>
+    </div>
+    <div class="card">
+        <h3>Total Profit</h3>
+        <p id="totalProfit">0</p>
+    </div>
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Plaza</th>
+<th>Area</th>
+<th>Division</th>
+<th>Total Marks</th>
+<th>Achv %</th>
+<th>Profit</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+
+</div>
+
+<script>
+
+let fullData = [];
+
+document.getElementById("fileInput").addEventListener("change", function(e) {
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type:'array'});
+
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        // Convert to JSON starting from row 6 (header row)
+        const raw = XLSX.utils.sheet_to_json(sheet, {header:1});
+
+        // Row 6 & 7 are headers
+        const header1 = raw[5];
+        const header2 = raw[6];
+
+        const rows = raw.slice(7);
+
+        fullData = rows.map(r => ({
+            Rank_No: r[1],
+            Plaza: r[2],
+            Area: r[3],
+            Division: r[4],
+            Total_Marks: parseFloat(r[5]) || 0,
+            Achv_Pct: parseFloat(r[9]) || 0,
+            Profit_Achv: parseFloat((r[49]||"").toString().replace(/,/g,'')) || 0
+        })).filter(d => d.Plaza);
+
+        initializeDashboard();
+        document.getElementById("dashboard").classList.remove("hidden");
+    };
+
+    reader.readAsArrayBuffer(e.target.files[0]);
+});
+
+function initializeDashboard() {
+
+    const areas = [...new Set(fullData.map(d=>d.Area))];
+    const divisions = [...new Set(fullData.map(d=>d.Division))];
+    const plazas = [...new Set(fullData.map(d=>d.Plaza))];
+
+    populateSelect("areaFilter", areas);
+    populateSelect("divisionFilter", divisions);
+    populateSelect("plazaFilter", plazas);
+
+    renderTable(fullData);
+}
+
+function populateSelect(id, values) {
+    const select = document.getElementById(id);
+    select.innerHTML = `<option value="">All</option>`;
+    values.forEach(v=>{
+        select.innerHTML += `<option value="${v}">${v}</option>`;
+    });
+}
+
+function applyFilters() {
+
+    const area = areaFilter.value;
+    const division = divisionFilter.value;
+    const plaza = plazaFilter.value;
+
+    const filtered = fullData.filter(d =>
+        (!area || d.Area===area) &&
+        (!division || d.Division===division) &&
+        (!plaza || d.Plaza===plaza)
+    );
+
+    renderTable(filtered);
+}
+
+function renderTable(data) {
+
+    const tbody = document.getElementById("tableBody");
+    tbody.innerHTML="";
+
+    data.forEach(d=>{
+        tbody.innerHTML += `
+        <tr>
+            <td>${d.Rank_No}</td>
+            <td>${d.Plaza}</td>
+            <td>${d.Area}</td>
+            <td>${d.Division}</td>
+            <td>${d.Total_Marks}</td>
+            <td>${d.Achv_Pct}%</td>
+            <td>${d.Profit_Achv.toLocaleString()}</td>
+        </tr>`;
+    });
+
+    document.getElementById("totalPlazas").innerText = data.length;
+
+    const avg = data.length ? 
+        (data.reduce((a,b)=>a+b.Achv_Pct,0)/data.length).toFixed(2)
+        : 0;
+
+    const totalProfit = data.reduce((a,b)=>a+b.Profit_Achv,0);
+
+    document.getElementById("avgAchv").innerText = avg + "%";
+    document.getElementById("totalProfit").innerText = totalProfit.toLocaleString();
+}
+
+areaFilter.addEventListener("change", applyFilters);
+divisionFilter.addEventListener("change", applyFilters);
+plazaFilter.addEventListener("change", applyFilters);
+
+</script>
+
+</body>
+</html>
