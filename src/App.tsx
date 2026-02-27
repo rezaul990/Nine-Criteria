@@ -62,10 +62,9 @@ function App() {
   const [selectedPlaza, setSelectedPlaza] = useState<PlazaData | null>(null);
   const [headers, setHeaders] = useState<{ [key: number]: string }>({});
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [isDragging, setIsDragging] = useState(false);
 
+  const processFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const data = new Uint8Array(e.target?.result as ArrayBuffer);
@@ -185,6 +184,32 @@ function App() {
     reader.readAsArrayBuffer(file);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+      processFile(file);
+    }
+  };
+
   const applyFilters = (division: string, area: string, plaza: string) => {
     const filtered = fullData.filter(
       (d) =>
@@ -292,10 +317,76 @@ function App() {
 
   return (
     <div className="app">
-      <h1>📊 Plaza Performance Dashboard</h1>
+      <div style={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        padding: '30px 20px', 
+        marginBottom: '30px',
+        borderRadius: '12px',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+      }}>
+        <h1 style={{ 
+          color: 'white', 
+          margin: 0, 
+          fontSize: '32px',
+          textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
+        }}>📊 Plaza Performance Dashboard</h1>
+        <p style={{ 
+          color: 'rgba(255,255,255,0.9)', 
+          margin: '10px 0 0 0',
+          fontSize: '16px'
+        }}>Upload your Excel file to analyze plaza performance metrics</p>
+      </div>
 
-      <div className="upload-box">
-        <input type="file" accept=".xls,.xlsx" onChange={handleFileUpload} />
+      <div 
+        className="upload-box"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          border: isDragging ? '3px dashed #667eea' : '3px dashed #ddd',
+          background: isDragging ? '#f0f4ff' : 'white',
+          padding: '40px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'all 0.3s ease'
+        }}
+      >
+        <div style={{ marginBottom: '20px' }}>
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke={isDragging ? '#667eea' : '#999'} strokeWidth="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <p style={{ fontSize: '18px', color: '#333', marginBottom: '10px', fontWeight: '500' }}>
+          {isDragging ? 'Drop your file here' : 'Drag & Drop your Excel file here'}
+        </p>
+        <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>or</p>
+        <label style={{
+          display: 'inline-block',
+          padding: '12px 30px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontSize: '16px',
+          fontWeight: '500',
+          transition: 'transform 0.2s ease',
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          Browse Files
+          <input 
+            type="file" 
+            accept=".xls,.xlsx" 
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+        </label>
+        <p style={{ fontSize: '12px', color: '#999', marginTop: '15px' }}>
+          Supported formats: .xlsx, .xls
+        </p>
       </div>
 
       {fullData.length > 0 && (
