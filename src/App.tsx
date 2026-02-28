@@ -64,6 +64,16 @@ function App() {
 
   const [isDragging, setIsDragging] = useState(false);
 
+  // ACH Growth Comparison states
+  const [currentYearData, setCurrentYearData] = useState<PlazaData[]>([]);
+  const [previousYearData, setPreviousYearData] = useState<PlazaData[]>([]);
+  const [isDraggingCurrent, setIsDraggingCurrent] = useState(false);
+  const [isDraggingPrevious, setIsDraggingPrevious] = useState(false);
+  const [comparisonDivisionFilter, setComparisonDivisionFilter] = useState('');
+  const [comparisonAreaFilter, setComparisonAreaFilter] = useState('');
+  const [comparisonPlazaFilter, setComparisonPlazaFilter] = useState('');
+  const [isDegrowthSectionOpen, setIsDegrowthSectionOpen] = useState(false);
+
   const processFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -315,8 +325,128 @@ function App() {
     XLSX.writeFile(wb, filename);
   };
 
+  // ACH Growth Comparison file handlers
+  const processComparisonFile = (file: File, setData: (data: PlazaData[]) => void) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      const rows = raw.slice(7);
+      const parsedData: PlazaData[] = rows
+        .map((r) => ({
+          Rank_No: r[1],
+          Plaza: r[2],
+          Area: r[3],
+          Division: r[4],
+          Total_Marks: parseFloat(r[5]) || 0,
+          Achv_Pct: parseFloat(r[9]) || 0,
+          Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+          allColumns: r,
+          Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+        }))
+        .filter((d) => d.Plaza && d.Plaza.toString().trim() !== '' && d.Total_Marks > 0);
+
+      setData(parsedData);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleCurrentYearUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processComparisonFile(file, setCurrentYearData);
+  };
+
+  const handlePreviousYearUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processComparisonFile(file, setPreviousYearData);
+  };
+
+  const handleCurrentYearDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingCurrent(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+      processComparisonFile(file, setCurrentYearData);
+    }
+  };
+
+  const handlePreviousYearDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingPrevious(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+      processComparisonFile(file, setPreviousYearData);
+    }
+  };
+
+  // Comparison filter handlers
+  const handleComparisonDivisionChange = (value: string) => {
+    setComparisonDivisionFilter(value);
+    setComparisonAreaFilter('');
+    setComparisonPlazaFilter('');
+  };
+
+  const handleComparisonAreaChange = (value: string) => {
+    setComparisonAreaFilter(value);
+    setComparisonPlazaFilter('');
+  };
+
+  const handleComparisonPlazaChange = (value: string) => {
+    setComparisonPlazaFilter(value);
+  };
+
+  // Get unique values for comparison filters
+  const comparisonDivisions = [...new Set(currentYearData.map((d) => d.Division))];
+  
+  const comparisonAreas = [...new Set(
+    currentYearData
+      .filter((d) => !comparisonDivisionFilter || d.Division === comparisonDivisionFilter)
+      .map((d) => d.Area)
+  )];
+  
+  const comparisonPlazas = [...new Set(
+    currentYearData
+      .filter((d) => 
+        (!comparisonDivisionFilter || d.Division === comparisonDivisionFilter) &&
+        (!comparisonAreaFilter || d.Area === comparisonAreaFilter)
+      )
+      .map((d) => d.Plaza)
+  )];
+
+  // Filter comparison data
+  const filteredComparisonData = currentYearData.filter((d) =>
+    (!comparisonDivisionFilter || d.Division === comparisonDivisionFilter) &&
+    (!comparisonAreaFilter || d.Area === comparisonAreaFilter) &&
+    (!comparisonPlazaFilter || d.Plaza === comparisonPlazaFilter)
+  );
+
   return (
     <div className="app">
+      {/* Top Credit */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', 
+        padding: '15px 20px', 
+        marginBottom: '20px',
+        borderRadius: '8px',
+        textAlign: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+      }}>
+        <p style={{ 
+          color: 'white', 
+          margin: 0, 
+          fontSize: '18px',
+          fontWeight: '700',
+          letterSpacing: '0.5px'
+        }}>
+          Developed by <span style={{ fontWeight: '900', color: '#3498db', fontSize: '20px' }}>Md Rezaul Karim RCM</span>
+        </p>
+      </div>
+
       <div style={{ 
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
         padding: '30px 20px', 
@@ -387,6 +517,609 @@ function App() {
         <p style={{ fontSize: '12px', color: '#999', marginTop: '15px' }}>
           Supported formats: .xlsx, .xls
         </p>
+      </div>
+
+      {/* ACH Growth Comparison Section */}
+      <div style={{ 
+        background: 'white', 
+        padding: '30px', 
+        marginBottom: '30px',
+        borderRadius: '12px',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+      }}>
+        <h2 style={{ 
+          margin: '0 0 10px 0', 
+          color: '#667eea',
+          fontSize: '24px'
+        }}>📈 ACH Growth Comparison</h2>
+        <p style={{ 
+          color: '#666', 
+          marginBottom: '25px',
+          fontSize: '14px'
+        }}>Upload current year and previous year files to compare achievement growth</p>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          {/* Current Year Upload */}
+          <div>
+            <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>Current Year File</h3>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDraggingCurrent(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDraggingCurrent(false); }}
+              onDrop={handleCurrentYearDrop}
+              style={{
+                border: isDraggingCurrent ? '2px dashed #667eea' : '2px dashed #ddd',
+                background: isDraggingCurrent ? '#f0f4ff' : currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                padding: '30px',
+                textAlign: 'center',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {currentYearData.length > 0 ? (
+                <div>
+                  <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                  <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
+                    File Uploaded Successfully
+                  </p>
+                  <p style={{ fontSize: '13px', color: '#666' }}>
+                    {currentYearData.length} plazas loaded
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                    {isDraggingCurrent ? 'Drop file here' : 'Drag & drop or click to browse'}
+                  </p>
+                  <label style={{
+                    display: 'inline-block',
+                    padding: '10px 20px',
+                    background: '#667eea',
+                    color: 'white',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}>
+                    Browse Files
+                    <input 
+                      type="file" 
+                      accept=".xls,.xlsx" 
+                      onChange={handleCurrentYearUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Previous Year Upload */}
+          <div>
+            <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>Previous Year File</h3>
+            <div
+              onDragOver={(e) => { e.preventDefault(); setIsDraggingPrevious(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDraggingPrevious(false); }}
+              onDrop={handlePreviousYearDrop}
+              style={{
+                border: isDraggingPrevious ? '2px dashed #667eea' : '2px dashed #ddd',
+                background: isDraggingPrevious ? '#f0f4ff' : previousYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                padding: '30px',
+                textAlign: 'center',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              {previousYearData.length > 0 ? (
+                <div>
+                  <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                  <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
+                    File Uploaded Successfully
+                  </p>
+                  <p style={{ fontSize: '13px', color: '#666' }}>
+                    {previousYearData.length} plazas loaded
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                    {isDraggingPrevious ? 'Drop file here' : 'Drag & drop or click to browse'}
+                  </p>
+                  <label style={{
+                    display: 'inline-block',
+                    padding: '10px 20px',
+                    background: '#667eea',
+                    color: 'white',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}>
+                    Browse Files
+                    <input 
+                      type="file" 
+                      accept=".xls,.xlsx" 
+                      onChange={handlePreviousYearUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Comparison Results */}
+        {currentYearData.length > 0 && previousYearData.length > 0 && (
+          <div style={{ marginTop: '30px' }}>
+            <h3 style={{ fontSize: '18px', marginBottom: '15px', color: '#333' }}>Growth Comparison Results</h3>
+            
+            {/* Comparison Filters */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '15px', 
+              marginBottom: '20px', 
+              flexWrap: 'wrap',
+              background: '#f8f9fa',
+              padding: '15px',
+              borderRadius: '8px'
+            }}>
+              <select 
+                value={comparisonDivisionFilter} 
+                onChange={(e) => handleComparisonDivisionChange(e.target.value)}
+                style={{
+                  padding: '10px 14px',
+                  minWidth: '180px',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  background: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">All Divisions</option>
+                {comparisonDivisions.map((division) => (
+                  <option key={division} value={division}>
+                    {division}
+                  </option>
+                ))}
+              </select>
+
+              <select 
+                value={comparisonAreaFilter} 
+                onChange={(e) => handleComparisonAreaChange(e.target.value)}
+                style={{
+                  padding: '10px 14px',
+                  minWidth: '180px',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  background: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">All Areas</option>
+                {comparisonAreas.map((area) => (
+                  <option key={area} value={area}>
+                    {area}
+                  </option>
+                ))}
+              </select>
+
+              <select 
+                value={comparisonPlazaFilter} 
+                onChange={(e) => handleComparisonPlazaChange(e.target.value)}
+                style={{
+                  padding: '10px 14px',
+                  minWidth: '180px',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  background: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">All Plazas</option>
+                {comparisonPlazas.map((plaza) => (
+                  <option key={plaza} value={plaza}>
+                    {plaza}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Summary Cards */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              gap: '15px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ 
+                padding: '15px', 
+                background: '#f0f4ff', 
+                borderRadius: '8px',
+                border: '1px solid #667eea'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '13px' }}>Total Plazas</h4>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#667eea', margin: '0 0 10px 0' }}>
+                  {filteredComparisonData.filter(current => 
+                    previousYearData.find(p => p.Plaza === current.Plaza)
+                  ).length}
+                </p>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  paddingTop: '10px',
+                  borderTop: '1px solid #d0d7ff'
+                }}>
+                  <span style={{ fontSize: '12px', color: '#666' }}>Degrowth Plaza Qty:</span>
+                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#dc3545' }}>
+                    {(() => {
+                      let degrowthCount = 0;
+                      filteredComparisonData.forEach((current) => {
+                        const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                        if (previous && current.Total_Ach < previous.Total_Ach) {
+                          degrowthCount++;
+                        }
+                      });
+                      return degrowthCount;
+                    })()}
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ 
+                padding: '15px', 
+                background: '#e8f5e9', 
+                borderRadius: '8px',
+                border: '1px solid #28a745'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '13px' }}>Total Growth %</h4>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745', margin: 0 }}>
+                  {(() => {
+                    let totalPreviousAch = 0;
+                    let totalCurrentAch = 0;
+                    
+                    filteredComparisonData.forEach((current) => {
+                      const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                      if (previous) {
+                        totalPreviousAch += previous.Total_Ach;
+                        totalCurrentAch += current.Total_Ach;
+                      }
+                    });
+                    
+                    const totalGrowthPercent = totalPreviousAch > 0 
+                      ? ((totalCurrentAch - totalPreviousAch) / totalPreviousAch * 100).toFixed(2)
+                      : '0.00';
+                    
+                    return parseFloat(totalGrowthPercent) >= 0 ? `+${totalGrowthPercent}%` : `${totalGrowthPercent}%`;
+                  })()}
+                </p>
+              </div>
+
+              <div style={{ 
+                padding: '15px', 
+                background: '#fff3e0', 
+                borderRadius: '8px',
+                border: '1px solid #ff9800'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '13px' }}>Total Growth Amount</h4>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff9800', margin: 0 }}>
+                  {(() => {
+                    const totalGrowth = filteredComparisonData.reduce((sum, current) => {
+                      const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                      if (!previous) return sum;
+                      return sum + (current.Total_Ach - previous.Total_Ach);
+                    }, 0);
+                    
+                    return (totalGrowth >= 0 ? '+' : '') + totalGrowth.toLocaleString();
+                  })()}
+                </p>
+              </div>
+            </div>
+
+            {/* Degrowth Summary Section - Collapsible */}
+            <div style={{ 
+              marginBottom: '20px',
+              background: '#fff5f5',
+              borderRadius: '8px',
+              border: '1px solid #f5c6cb',
+              overflow: 'hidden'
+            }}>
+              <div 
+                onClick={() => setIsDegrowthSectionOpen(!isDegrowthSectionOpen)}
+                style={{ 
+                  padding: '15px 20px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: '#f8d7da',
+                  transition: 'background 0.2s ease'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = '#f1b0b7'}
+                onMouseOut={(e) => e.currentTarget.style.background = '#f8d7da'}
+              >
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#721c24' }}>
+                  📉 Total Degrowth Summary
+                </h3>
+                <span style={{ fontSize: '20px', color: '#721c24' }}>
+                  {isDegrowthSectionOpen ? '▼' : '▶'}
+                </span>
+              </div>
+
+              {isDegrowthSectionOpen && (
+                <div style={{ padding: '20px' }}>
+                  {/* Degrowth Summary Cards */}
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                    gap: '15px',
+                    marginBottom: '20px'
+                  }}>
+                    {(() => {
+                      const degrowthPlazas = filteredComparisonData.filter((current) => {
+                        const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                        return previous && current.Total_Ach < previous.Total_Ach;
+                      });
+
+                      const degrowthDivisions = [...new Set(degrowthPlazas.map(d => d.Division))];
+                      const degrowthAreas = [...new Set(degrowthPlazas.map(d => d.Area))];
+
+                      return (
+                        <>
+                          <div style={{ 
+                            padding: '15px', 
+                            background: 'white', 
+                            borderRadius: '6px',
+                            border: '2px solid #dc3545'
+                          }}>
+                            <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '13px' }}>
+                              Total Degrowth Division Qty
+                            </h4>
+                            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545', margin: 0 }}>
+                              {degrowthDivisions.length}
+                            </p>
+                          </div>
+
+                          <div style={{ 
+                            padding: '15px', 
+                            background: 'white', 
+                            borderRadius: '6px',
+                            border: '2px solid #dc3545'
+                          }}>
+                            <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '13px' }}>
+                              Total Degrowth Area Qty
+                            </h4>
+                            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545', margin: 0 }}>
+                              {degrowthAreas.length}
+                            </p>
+                          </div>
+
+                          <div style={{ 
+                            padding: '15px', 
+                            background: 'white', 
+                            borderRadius: '6px',
+                            border: '2px solid #dc3545'
+                          }}>
+                            <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '13px' }}>
+                              Total Degrowth Plaza Qty
+                            </h4>
+                            <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545', margin: 0 }}>
+                              {degrowthPlazas.length}
+                            </p>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Degrowth Details by Division */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Degrowth by Division</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                      {(() => {
+                        const degrowthPlazas = filteredComparisonData.filter((current) => {
+                          const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                          return previous && current.Total_Ach < previous.Total_Ach;
+                        });
+
+                        const divisionSummary = degrowthPlazas.reduce((acc, d) => {
+                          if (!acc[d.Division]) {
+                            acc[d.Division] = { qty: 0, amount: 0 };
+                          }
+                          const previous = previousYearData.find(p => p.Plaza === d.Plaza);
+                          if (previous) {
+                            acc[d.Division].qty += 1;
+                            acc[d.Division].amount += (d.Total_Ach - previous.Total_Ach);
+                          }
+                          return acc;
+                        }, {} as Record<string, { qty: number; amount: number }>);
+
+                        return Object.entries(divisionSummary)
+                          .sort((a, b) => b[1].qty - a[1].qty)
+                          .map(([division, data]) => (
+                            <div key={division} style={{ 
+                              padding: '12px', 
+                              background: 'white', 
+                              borderRadius: '6px', 
+                              border: '1px solid #f5c6cb' 
+                            }}>
+                              <h5 style={{ margin: '0 0 8px 0', color: '#721c24', fontSize: '14px' }}>
+                                {division}
+                              </h5>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '12px', color: '#666' }}>Plaza Qty:</span>
+                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
+                                  {data.qty}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '12px', color: '#666' }}>Degrowth Amount:</span>
+                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
+                                  {data.amount.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Degrowth Details by Area */}
+                  <div>
+                    <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Degrowth by Area</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                      {(() => {
+                        const degrowthPlazas = filteredComparisonData.filter((current) => {
+                          const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                          return previous && current.Total_Ach < previous.Total_Ach;
+                        });
+
+                        const areaSummary = degrowthPlazas.reduce((acc, d) => {
+                          if (!acc[d.Area]) {
+                            acc[d.Area] = { qty: 0, amount: 0 };
+                          }
+                          const previous = previousYearData.find(p => p.Plaza === d.Plaza);
+                          if (previous) {
+                            acc[d.Area].qty += 1;
+                            acc[d.Area].amount += (d.Total_Ach - previous.Total_Ach);
+                          }
+                          return acc;
+                        }, {} as Record<string, { qty: number; amount: number }>);
+
+                        return Object.entries(areaSummary)
+                          .sort((a, b) => b[1].qty - a[1].qty)
+                          .map(([area, data]) => (
+                            <div key={area} style={{ 
+                              padding: '12px', 
+                              background: 'white', 
+                              borderRadius: '6px', 
+                              border: '1px solid #f5c6cb' 
+                            }}>
+                              <h5 style={{ margin: '0 0 8px 0', color: '#721c24', fontSize: '14px' }}>
+                                {area}
+                              </h5>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                <span style={{ fontSize: '12px', color: '#666' }}>Plaza Qty:</span>
+                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
+                                  {data.qty}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '12px', color: '#666' }}>Degrowth Amount:</span>
+                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
+                                  {data.amount.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>PLAZA</th>
+                    <th>AREA</th>
+                    <th>DIVISION</th>
+                    <th>PREVIOUS YEAR TOTAL SALE ACH</th>
+                    <th>CURRENT YEAR TOTAL SALE ACH</th>
+                    <th>GROWTH AMOUNT</th>
+                    <th>GROWTH %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredComparisonData.map((current) => {
+                    const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                    if (!previous) return null;
+                    
+                    const growthAmount = current.Total_Ach - previous.Total_Ach;
+                    const growthPercent = previous.Total_Ach > 0 
+                      ? ((growthAmount / previous.Total_Ach) * 100).toFixed(2)
+                      : '0.00';
+                    
+                    return (
+                      <tr key={current.Plaza}>
+                        <td>{current.Plaza}</td>
+                        <td>{current.Area}</td>
+                        <td>{current.Division}</td>
+                        <td>{previous.Total_Ach.toLocaleString()}</td>
+                        <td>{current.Total_Ach.toLocaleString()}</td>
+                        <td style={{ 
+                          color: growthAmount >= 0 ? '#28a745' : '#dc3545',
+                          fontWeight: 'bold'
+                        }}>
+                          {growthAmount >= 0 ? '+' : ''}{growthAmount.toLocaleString()}
+                        </td>
+                        <td style={{ 
+                          color: parseFloat(growthPercent) >= 0 ? '#28a745' : '#dc3545',
+                          fontWeight: 'bold'
+                        }}>
+                          {parseFloat(growthPercent) >= 0 ? '+' : ''}{growthPercent}%
+                        </td>
+                      </tr>
+                    );
+                  }).filter(Boolean)}
+                  
+                  {/* Total Row */}
+                  {filteredComparisonData.length > 0 && (() => {
+                    let totalPreviousAch = 0;
+                    let totalCurrentAch = 0;
+                    
+                    filteredComparisonData.forEach((current) => {
+                      const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                      if (previous) {
+                        totalPreviousAch += previous.Total_Ach;
+                        totalCurrentAch += current.Total_Ach;
+                      }
+                    });
+                    
+                    const totalGrowthAmount = totalCurrentAch - totalPreviousAch;
+                    const totalGrowthPercent = totalPreviousAch > 0 
+                      ? ((totalGrowthAmount / totalPreviousAch) * 100).toFixed(2)
+                      : '0.00';
+                    
+                    return (
+                      <tr style={{ 
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        fontSize: '15px'
+                      }}>
+                        <td colSpan={3}>TOTAL</td>
+                        <td>{totalPreviousAch.toLocaleString()}</td>
+                        <td>{totalCurrentAch.toLocaleString()}</td>
+                        <td style={{ 
+                          color: totalGrowthAmount >= 0 ? '#90EE90' : '#FFB6C1',
+                          fontWeight: 'bold'
+                        }}>
+                          {totalGrowthAmount >= 0 ? '+' : ''}{totalGrowthAmount.toLocaleString()}
+                        </td>
+                        <td style={{ 
+                          color: parseFloat(totalGrowthPercent) >= 0 ? '#90EE90' : '#FFB6C1',
+                          fontWeight: 'bold'
+                        }}>
+                          {parseFloat(totalGrowthPercent) >= 0 ? '+' : ''}{totalGrowthPercent}%
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {fullData.length > 0 && (
@@ -1033,6 +1766,34 @@ function App() {
           </div>
         </>
       )}
+
+      {/* Bottom Credit */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', 
+        padding: '20px 20px', 
+        marginTop: '40px',
+        borderRadius: '8px',
+        textAlign: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+      }}>
+        <p style={{ 
+          color: 'white', 
+          margin: 0, 
+          fontSize: '18px',
+          fontWeight: '700',
+          letterSpacing: '0.5px'
+        }}>
+          Developed by <span style={{ fontWeight: '900', color: '#3498db', fontSize: '22px' }}>Md Rezaul Karim RCM</span>
+        </p>
+        <p style={{ 
+          color: 'rgba(255,255,255,0.8)', 
+          margin: '8px 0 0 0', 
+          fontSize: '14px',
+          fontWeight: '600'
+        }}>
+          © {new Date().getFullYear()} All Rights Reserved
+        </p>
+      </div>
     </div>
   );
 }
