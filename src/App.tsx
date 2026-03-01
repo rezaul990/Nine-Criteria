@@ -763,7 +763,9 @@ function App() {
                       let degrowthCount = 0;
                       filteredComparisonData.forEach((current) => {
                         const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                        if (previous && current.Total_Ach < previous.Total_Ach) {
+                        const currentAch = current?.Total_Ach ?? 0;
+                        const previousAch = previous?.Total_Ach ?? 0;
+                        if (previous && currentAch < previousAch) {
                           degrowthCount++;
                         }
                       });
@@ -788,8 +790,8 @@ function App() {
                     filteredComparisonData.forEach((current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                       if (previous) {
-                        totalPreviousAch += previous.Total_Ach;
-                        totalCurrentAch += current.Total_Ach;
+                        totalPreviousAch += previous?.Total_Ach ?? 0;
+                        totalCurrentAch += current?.Total_Ach ?? 0;
                       }
                     });
                     
@@ -814,7 +816,9 @@ function App() {
                     const totalGrowth = filteredComparisonData.reduce((sum, current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                       if (!previous) return sum;
-                      return sum + (current.Total_Ach - previous.Total_Ach);
+                      const currentAch = current?.Total_Ach ?? 0;
+                      const previousAch = previous?.Total_Ach ?? 0;
+                      return sum + (currentAch - previousAch);
                     }, 0);
                     
                     return (totalGrowth >= 0 ? '+' : '') + totalGrowth.toLocaleString();
@@ -865,7 +869,9 @@ function App() {
                     {(() => {
                       const degrowthPlazas = filteredComparisonData.filter((current) => {
                         const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                        return previous && current.Total_Ach < previous.Total_Ach;
+                        const currentAch = current?.Total_Ach ?? 0;
+                        const previousAch = previous?.Total_Ach ?? 0;
+                        return previous && currentAch < previousAch;
                       });
 
                       const degrowthDivisions = [...new Set(degrowthPlazas.map(d => d.Division))];
@@ -926,7 +932,9 @@ function App() {
                       {(() => {
                         const degrowthPlazas = filteredComparisonData.filter((current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                          return previous && current.Total_Ach < previous.Total_Ach;
+                          const currentAch = current?.Total_Ach ?? 0;
+                          const previousAch = previous?.Total_Ach ?? 0;
+                          return previous && currentAch < previousAch;
                         });
 
                         const divisionSummary = degrowthPlazas.reduce((acc, d) => {
@@ -936,7 +944,9 @@ function App() {
                           const previous = previousYearData.find(p => p.Plaza === d.Plaza);
                           if (previous) {
                             acc[d.Division].qty += 1;
-                            acc[d.Division].amount += (d.Total_Ach - previous.Total_Ach);
+                            const dAch = d?.Total_Ach ?? 0;
+                            const prevAch = previous?.Total_Ach ?? 0;
+                            acc[d.Division].amount += (dAch - prevAch);
                           }
                           return acc;
                         }, {} as Record<string, { qty: number; amount: number }>);
@@ -978,7 +988,9 @@ function App() {
                       {(() => {
                         const degrowthPlazas = filteredComparisonData.filter((current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                          return previous && current.Total_Ach < previous.Total_Ach;
+                          const currentAch = current?.Total_Ach ?? 0;
+                          const previousAch = previous?.Total_Ach ?? 0;
+                          return previous && currentAch < previousAch;
                         });
 
                         const areaSummary = degrowthPlazas.reduce((acc, d) => {
@@ -988,7 +1000,9 @@ function App() {
                           const previous = previousYearData.find(p => p.Plaza === d.Plaza);
                           if (previous) {
                             acc[d.Area].qty += 1;
-                            acc[d.Area].amount += (d.Total_Ach - previous.Total_Ach);
+                            const dAch = d?.Total_Ach ?? 0;
+                            const prevAch = previous?.Total_Ach ?? 0;
+                            acc[d.Area].amount += (dAch - prevAch);
                           }
                           return acc;
                         }, {} as Record<string, { qty: number; amount: number }>);
@@ -1044,9 +1058,11 @@ function App() {
                     const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                     if (!previous) return null;
                     
-                    const growthAmount = current.Total_Ach - previous.Total_Ach;
-                    const growthPercent = previous.Total_Ach > 0 
-                      ? ((growthAmount / previous.Total_Ach) * 100).toFixed(2)
+                    const currentAch = current?.Total_Ach ?? 0;
+                    const previousAch = previous?.Total_Ach ?? 0;
+                    const growthAmount = currentAch - previousAch;
+                    const growthPercent = previousAch > 0 
+                      ? ((growthAmount / previousAch) * 100).toFixed(2)
                       : '0.00';
                     
                     return (
@@ -1054,8 +1070,8 @@ function App() {
                         <td>{current.Plaza}</td>
                         <td>{current.Area}</td>
                         <td>{current.Division}</td>
-                        <td>{previous.Total_Ach.toLocaleString()}</td>
-                        <td>{current.Total_Ach.toLocaleString()}</td>
+                        <td>{previousAch.toLocaleString()}</td>
+                        <td>{currentAch.toLocaleString()}</td>
                         <td style={{ 
                           color: growthAmount >= 0 ? '#28a745' : '#dc3545',
                           fontWeight: 'bold'
@@ -1080,8 +1096,8 @@ function App() {
                     filteredComparisonData.forEach((current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                       if (previous) {
-                        totalPreviousAch += previous.Total_Ach;
-                        totalCurrentAch += current.Total_Ach;
+                        totalPreviousAch += previous?.Total_Ach ?? 0;
+                        totalCurrentAch += current?.Total_Ach ?? 0;
                       }
                     });
                     
