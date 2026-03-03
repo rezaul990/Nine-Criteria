@@ -1154,6 +1154,68 @@ function App() {
               )}
             </div>
 
+            {/* Download Button for Comparison */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#333' }}>Growth Comparison Details</h3>
+              <button 
+                onClick={() => {
+                  const now = new Date();
+                  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                  const month = monthNames[now.getMonth()];
+                  const prevYear = now.getFullYear() - 1;
+                  const currYear = now.getFullYear();
+                  
+                  const exportData = filteredComparisonData
+                    .map((current) => {
+                      const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                      if (!previous) return null;
+                      
+                      const currentAch = current?.Total_Ach ?? 0;
+                      const previousAch = previous?.Total_Ach ?? 0;
+                      const profitAch = current?.Profit_Ach ?? 0;
+                      const growthAmount = currentAch - previousAch;
+                      const growthPercent = previousAch > 0 
+                        ? ((growthAmount / previousAch) * 100).toFixed(2)
+                        : '0.00';
+                      
+                      return {
+                        'Plaza': current.Plaza,
+                        'Area': current.Area,
+                        'Division': current.Division,
+                        [`${month} - ${prevYear} ACH`]: previousAch,
+                        [`${month} - ${currYear} ACH`]: currentAch,
+                        [`Profit ACH ${currYear}`]: profitAch,
+                        'Growth Amount': growthAmount,
+                        'Growth %': parseFloat(growthPercent)
+                      };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => (a?.Plaza || '').localeCompare(b?.Plaza || ''));
+
+                  const ws = XLSX.utils.json_to_sheet(exportData);
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, 'Growth Comparison');
+                  
+                  const date = new Date().toISOString().split('T')[0];
+                  const filename = `Growth_Comparison_${month}_${currYear}_${date}.xlsx`;
+                  
+                  XLSX.writeFile(wb, filename);
+                }}
+                style={{ 
+                  padding: '10px 20px', 
+                  cursor: 'pointer', 
+                  borderRadius: '6px', 
+                  border: '1px solid #28a745', 
+                  background: '#28a745',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                📥 Download Excel
+              </button>
+            </div>
+
             <div style={{ overflowX: 'auto' }}>
               <table>
                 <thead>
@@ -1161,14 +1223,33 @@ function App() {
                     <th>PLAZA</th>
                     <th>AREA</th>
                     <th>DIVISION</th>
-                    <th>PREVIOUS YEAR TOTAL SALE ACH</th>
-                    <th>CURRENT YEAR TOTAL SALE ACH</th>
+                    <th>{(() => {
+                      const now = new Date();
+                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const month = monthNames[now.getMonth()];
+                      const year = now.getFullYear() - 1;
+                      return `${month} - ${year} ACH`;
+                    })()}</th>
+                    <th>{(() => {
+                      const now = new Date();
+                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      const month = monthNames[now.getMonth()];
+                      const year = now.getFullYear();
+                      return `${month} - ${year} ACH`;
+                    })()}</th>
+                    <th>{(() => {
+                      const now = new Date();
+                      const year = now.getFullYear();
+                      return `Profit ACH ${year}`;
+                    })()}</th>
                     <th>GROWTH AMOUNT</th>
                     <th>GROWTH %</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredComparisonData.map((current) => {
+                  {filteredComparisonData
+                    .sort((a, b) => (a.Plaza || '').toString().localeCompare((b.Plaza || '').toString()))
+                    .map((current) => {
                     const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                     if (!previous) return null;
                     
@@ -1179,6 +1260,8 @@ function App() {
                       ? ((growthAmount / previousAch) * 100).toFixed(2)
                       : '0.00';
                     
+                    const profitAch = current?.Profit_Ach ?? 0;
+                    
                     return (
                       <tr key={current.Plaza}>
                         <td>{current.Plaza}</td>
@@ -1186,6 +1269,12 @@ function App() {
                         <td>{current.Division}</td>
                         <td>{previousAch.toLocaleString()}</td>
                         <td>{currentAch.toLocaleString()}</td>
+                        <td style={{ 
+                          color: profitAch >= 0 ? '#28a745' : '#dc3545',
+                          fontWeight: 'bold'
+                        }}>
+                          {profitAch.toLocaleString()}
+                        </td>
                         <td style={{ 
                           color: growthAmount >= 0 ? '#28a745' : '#dc3545',
                           fontWeight: 'bold'
@@ -1206,12 +1295,14 @@ function App() {
                   {filteredComparisonData.length > 0 && (() => {
                     let totalPreviousAch = 0;
                     let totalCurrentAch = 0;
+                    let totalProfitAch = 0;
                     
                     filteredComparisonData.forEach((current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                       if (previous) {
                         totalPreviousAch += previous?.Total_Ach ?? 0;
                         totalCurrentAch += current?.Total_Ach ?? 0;
+                        totalProfitAch += current?.Profit_Ach ?? 0;
                       }
                     });
                     
@@ -1230,6 +1321,12 @@ function App() {
                         <td colSpan={3}>TOTAL</td>
                         <td>{totalPreviousAch.toLocaleString()}</td>
                         <td>{totalCurrentAch.toLocaleString()}</td>
+                        <td style={{ 
+                          color: totalProfitAch >= 0 ? '#90EE90' : '#FFB6C1',
+                          fontWeight: 'bold'
+                        }}>
+                          {totalProfitAch.toLocaleString()}
+                        </td>
                         <td style={{ 
                           color: totalGrowthAmount >= 0 ? '#90EE90' : '#FFB6C1',
                           fontWeight: 'bold'
