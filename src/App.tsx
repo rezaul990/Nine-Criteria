@@ -185,7 +185,16 @@ function App() {
           Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
           Profit_Ach_Pct: parseFloat(r[50]) || 0,
         }))
-        .filter((d) => d.Plaza && d.Plaza.toString().trim() !== '' && d.Total_Marks > 0);
+        .filter((d) => {
+          const plazaName = d.Plaza?.toString().trim();
+          // Filter out empty, "0", "Plaza" (header), or invalid plaza names
+          return plazaName && 
+                 plazaName !== '' && 
+                 plazaName !== '0' && 
+                 plazaName !== 'Plaza' && 
+                 plazaName !== 'undefined' && 
+                 plazaName !== 'null';
+        });
 
       setFullData(parsedData);
       setFilteredData(parsedData);
@@ -266,8 +275,12 @@ function App() {
   )];
 
   const avgAchv = filteredData.length
-    ? (filteredData.reduce((a, b) => a + b.Achv_Pct, 0) / filteredData.length).toFixed(2)
-    : '0';
+    ? (() => {
+        const totalTarget = filteredData.reduce((sum, d) => sum + (d.Total_Target || 0), 0);
+        const totalAch = filteredData.reduce((sum, d) => sum + (d.Total_Ach || 0), 0);
+        return totalTarget > 0 ? ((totalAch / totalTarget) * 100).toFixed(2) : '0.00';
+      })()
+    : '0.00';
 
   const totalProfit = filteredData.reduce((a, b) => a + b.Profit_Achv, 0);
 
@@ -347,7 +360,16 @@ function App() {
           allColumns: r,
           Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
         }))
-        .filter((d) => d.Plaza && d.Plaza.toString().trim() !== '' && d.Total_Marks > 0);
+        .filter((d) => {
+          const plazaName = d.Plaza?.toString().trim();
+          // Filter out empty, "0", "Plaza" (header), or invalid plaza names
+          return plazaName && 
+                 plazaName !== '' && 
+                 plazaName !== '0' && 
+                 plazaName !== 'Plaza' && 
+                 plazaName !== 'undefined' && 
+                 plazaName !== 'null';
+        });
 
       setData(parsedData);
     };
@@ -859,7 +881,7 @@ function App() {
 
               {isDegrowthSectionOpen && (
                 <div style={{ padding: '20px' }}>
-                  {/* Degrowth Summary Cards */}
+                  {/* Summary Cards */}
                   <div style={{ 
                     display: 'grid', 
                     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
@@ -867,15 +889,51 @@ function App() {
                     marginBottom: '20px'
                   }}>
                     {(() => {
-                      const degrowthPlazas = filteredComparisonData.filter((current) => {
+                      // Calculate all plazas with comparison data
+                      const allComparisonPlazas = filteredComparisonData.filter((current) => {
+                        const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                        return previous !== undefined;
+                      });
+
+                      // Calculate degrowth plazas (individual plazas with degrowth)
+                      const degrowthPlazas = allComparisonPlazas.filter((current) => {
                         const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                         const currentAch = current?.Total_Ach ?? 0;
                         const previousAch = previous?.Total_Ach ?? 0;
-                        return previous && currentAch < previousAch;
+                        return currentAch < previousAch;
                       });
 
-                      const degrowthDivisions = [...new Set(degrowthPlazas.map(d => d.Division))];
-                      const degrowthAreas = [...new Set(degrowthPlazas.map(d => d.Area))];
+                      // Calculate divisions with overall degrowth
+                      const divisionTotals = allComparisonPlazas.reduce((acc, current) => {
+                        const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                        if (!previous) return acc;
+                        
+                        if (!acc[current.Division]) {
+                          acc[current.Division] = 0;
+                        }
+                        const currentAch = current?.Total_Ach ?? 0;
+                        const previousAch = previous?.Total_Ach ?? 0;
+                        acc[current.Division] += (currentAch - previousAch);
+                        return acc;
+                      }, {} as Record<string, number>);
+                      
+                      const degrowthDivisions = Object.values(divisionTotals).filter(total => total < 0).length;
+
+                      // Calculate areas with overall degrowth
+                      const areaTotals = allComparisonPlazas.reduce((acc, current) => {
+                        const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                        if (!previous) return acc;
+                        
+                        if (!acc[current.Area]) {
+                          acc[current.Area] = 0;
+                        }
+                        const currentAch = current?.Total_Ach ?? 0;
+                        const previousAch = previous?.Total_Ach ?? 0;
+                        acc[current.Area] += (currentAch - previousAch);
+                        return acc;
+                      }, {} as Record<string, number>);
+                      
+                      const degrowthAreas = Object.values(areaTotals).filter(total => total < 0).length;
 
                       return (
                         <>
@@ -889,7 +947,7 @@ function App() {
                               Total Degrowth Division Qty
                             </h4>
                             <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545', margin: 0 }}>
-                              {degrowthDivisions.length}
+                              {degrowthDivisions}
                             </p>
                           </div>
 
@@ -903,7 +961,7 @@ function App() {
                               Total Degrowth Area Qty
                             </h4>
                             <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545', margin: 0 }}>
-                              {degrowthAreas.length}
+                              {degrowthAreas}
                             </p>
                           </div>
 
@@ -925,114 +983,170 @@ function App() {
                     })()}
                   </div>
 
-                  {/* Degrowth Details by Division */}
+                  {/* Details by Division */}
                   <div style={{ marginBottom: '20px' }}>
-                    <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Degrowth by Division</h4>
+                    <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Growth/Degrowth by Division</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                       {(() => {
-                        const degrowthPlazas = filteredComparisonData.filter((current) => {
+                        const divisionSummary = filteredComparisonData.reduce((acc, current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                          if (!previous) return acc;
+                          
+                          if (!acc[current.Division]) {
+                            acc[current.Division] = { growthQty: 0, degrowthQty: 0, amount: 0 };
+                          }
+                          
                           const currentAch = current?.Total_Ach ?? 0;
                           const previousAch = previous?.Total_Ach ?? 0;
-                          return previous && currentAch < previousAch;
-                        });
-
-                        const divisionSummary = degrowthPlazas.reduce((acc, d) => {
-                          if (!acc[d.Division]) {
-                            acc[d.Division] = { qty: 0, amount: 0 };
+                          const diff = currentAch - previousAch;
+                          
+                          if (diff >= 0) {
+                            acc[current.Division].growthQty += 1;
+                          } else {
+                            acc[current.Division].degrowthQty += 1;
                           }
-                          const previous = previousYearData.find(p => p.Plaza === d.Plaza);
-                          if (previous) {
-                            acc[d.Division].qty += 1;
-                            const dAch = d?.Total_Ach ?? 0;
-                            const prevAch = previous?.Total_Ach ?? 0;
-                            acc[d.Division].amount += (dAch - prevAch);
-                          }
+                          acc[current.Division].amount += diff;
+                          
                           return acc;
-                        }, {} as Record<string, { qty: number; amount: number }>);
+                        }, {} as Record<string, { growthQty: number; degrowthQty: number; amount: number }>);
 
                         return Object.entries(divisionSummary)
-                          .sort((a, b) => b[1].qty - a[1].qty)
-                          .map(([division, data]) => (
-                            <div key={division} style={{ 
-                              padding: '12px', 
-                              background: 'white', 
-                              borderRadius: '6px', 
-                              border: '1px solid #f5c6cb' 
-                            }}>
-                              <h5 style={{ margin: '0 0 8px 0', color: '#721c24', fontSize: '14px' }}>
-                                {division}
-                              </h5>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontSize: '12px', color: '#666' }}>Plaza Qty:</span>
-                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
-                                  {data.qty}
-                                </span>
+                          .sort((a, b) => Math.abs(b[1].amount) - Math.abs(a[1].amount))
+                          .map(([division, data]) => {
+                            const isGrowth = data.amount >= 0;
+                            return (
+                              <div key={division} style={{ 
+                                padding: '12px', 
+                                background: 'white', 
+                                borderRadius: '6px', 
+                                border: `2px solid ${isGrowth ? '#28a745' : '#dc3545'}`,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }}>
+                                <h5 style={{ 
+                                  margin: '0 0 10px 0', 
+                                  color: isGrowth ? '#28a745' : '#721c24', 
+                                  fontSize: '15px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {division}
+                                </h5>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                  <span style={{ fontSize: '12px', color: '#666' }}>Growth Plaza:</span>
+                                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#28a745' }}>
+                                    {data.growthQty}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                  <span style={{ fontSize: '12px', color: '#666' }}>Degrowth Plaza:</span>
+                                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
+                                    {data.degrowthQty}
+                                  </span>
+                                </div>
+                                <div style={{ 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between',
+                                  paddingTop: '8px',
+                                  borderTop: '1px solid #eee',
+                                  marginTop: '8px'
+                                }}>
+                                  <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
+                                    {isGrowth ? 'Growth' : 'Degrowth'} Amount:
+                                  </span>
+                                  <span style={{ 
+                                    fontSize: '15px', 
+                                    fontWeight: 'bold', 
+                                    color: isGrowth ? '#28a745' : '#dc3545' 
+                                  }}>
+                                    {isGrowth ? '+' : ''}{data.amount.toLocaleString()}
+                                  </span>
+                                </div>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '12px', color: '#666' }}>Degrowth Amount:</span>
-                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
-                                  {data.amount.toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          ));
+                            );
+                          });
                       })()}
                     </div>
                   </div>
 
-                  {/* Degrowth Details by Area */}
+                  {/* Details by Area */}
                   <div>
-                    <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Degrowth by Area</h4>
+                    <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Growth/Degrowth by Area</h4>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                       {(() => {
-                        const degrowthPlazas = filteredComparisonData.filter((current) => {
+                        const areaSummary = filteredComparisonData.reduce((acc, current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+                          if (!previous) return acc;
+                          
+                          if (!acc[current.Area]) {
+                            acc[current.Area] = { growthQty: 0, degrowthQty: 0, amount: 0 };
+                          }
+                          
                           const currentAch = current?.Total_Ach ?? 0;
                           const previousAch = previous?.Total_Ach ?? 0;
-                          return previous && currentAch < previousAch;
-                        });
-
-                        const areaSummary = degrowthPlazas.reduce((acc, d) => {
-                          if (!acc[d.Area]) {
-                            acc[d.Area] = { qty: 0, amount: 0 };
+                          const diff = currentAch - previousAch;
+                          
+                          if (diff >= 0) {
+                            acc[current.Area].growthQty += 1;
+                          } else {
+                            acc[current.Area].degrowthQty += 1;
                           }
-                          const previous = previousYearData.find(p => p.Plaza === d.Plaza);
-                          if (previous) {
-                            acc[d.Area].qty += 1;
-                            const dAch = d?.Total_Ach ?? 0;
-                            const prevAch = previous?.Total_Ach ?? 0;
-                            acc[d.Area].amount += (dAch - prevAch);
-                          }
+                          acc[current.Area].amount += diff;
+                          
                           return acc;
-                        }, {} as Record<string, { qty: number; amount: number }>);
+                        }, {} as Record<string, { growthQty: number; degrowthQty: number; amount: number }>);
 
                         return Object.entries(areaSummary)
-                          .sort((a, b) => b[1].qty - a[1].qty)
-                          .map(([area, data]) => (
-                            <div key={area} style={{ 
-                              padding: '12px', 
-                              background: 'white', 
-                              borderRadius: '6px', 
-                              border: '1px solid #f5c6cb' 
-                            }}>
-                              <h5 style={{ margin: '0 0 8px 0', color: '#721c24', fontSize: '14px' }}>
-                                {area}
-                              </h5>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <span style={{ fontSize: '12px', color: '#666' }}>Plaza Qty:</span>
-                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
-                                  {data.qty}
-                                </span>
+                          .sort((a, b) => Math.abs(b[1].amount) - Math.abs(a[1].amount))
+                          .map(([area, data]) => {
+                            const isGrowth = data.amount >= 0;
+                            return (
+                              <div key={area} style={{ 
+                                padding: '12px', 
+                                background: 'white', 
+                                borderRadius: '6px', 
+                                border: `2px solid ${isGrowth ? '#28a745' : '#dc3545'}`,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                              }}>
+                                <h5 style={{ 
+                                  margin: '0 0 10px 0', 
+                                  color: isGrowth ? '#28a745' : '#721c24', 
+                                  fontSize: '15px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {area}
+                                </h5>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                  <span style={{ fontSize: '12px', color: '#666' }}>Growth Plaza:</span>
+                                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#28a745' }}>
+                                    {data.growthQty}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                  <span style={{ fontSize: '12px', color: '#666' }}>Degrowth Plaza:</span>
+                                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
+                                    {data.degrowthQty}
+                                  </span>
+                                </div>
+                                <div style={{ 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between',
+                                  paddingTop: '8px',
+                                  borderTop: '1px solid #eee',
+                                  marginTop: '8px'
+                                }}>
+                                  <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
+                                    {isGrowth ? 'Growth' : 'Degrowth'} Amount:
+                                  </span>
+                                  <span style={{ 
+                                    fontSize: '15px', 
+                                    fontWeight: 'bold', 
+                                    color: isGrowth ? '#28a745' : '#dc3545' 
+                                  }}>
+                                    {isGrowth ? '+' : ''}{data.amount.toLocaleString()}
+                                  </span>
+                                </div>
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '12px', color: '#666' }}>Degrowth Amount:</span>
-                                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#dc3545' }}>
-                                  {data.amount.toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          ));
+                            );
+                          });
                       })()}
                     </div>
                   </div>
