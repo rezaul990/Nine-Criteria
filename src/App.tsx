@@ -73,6 +73,8 @@ function App() {
   const [comparisonAreaFilter, setComparisonAreaFilter] = useState('');
   const [comparisonPlazaFilter, setComparisonPlazaFilter] = useState('');
   const [isDegrowthSectionOpen, setIsDegrowthSectionOpen] = useState(false);
+  const [isComparisonSectionOpen, setIsComparisonSectionOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'amount' | 'percent'>('amount');
 
   const processFile = (file: File) => {
     const reader = new FileReader();
@@ -198,6 +200,8 @@ function App() {
 
       setFullData(parsedData);
       setFilteredData(parsedData);
+      // Also set as current year data for comparison
+      setCurrentYearData(parsedData);
     };
 
     reader.readAsArrayBuffer(file);
@@ -541,40 +545,63 @@ function App() {
         </p>
       </div>
 
-      {/* ACH Growth Comparison Section */}
+      {/* ACH Growth Comparison Section - Collapsible */}
       <div style={{ 
         background: 'white', 
-        padding: '30px', 
         marginBottom: '30px',
         borderRadius: '12px',
-        boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+        overflow: 'hidden'
       }}>
-        <h2 style={{ 
-          margin: '0 0 10px 0', 
-          color: '#667eea',
-          fontSize: '24px'
-        }}>📈 ACH Growth Comparison</h2>
-        <p style={{ 
-          color: '#666', 
-          marginBottom: '25px',
-          fontSize: '14px'
-        }}>Upload current year and previous year files to compare achievement growth</p>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-          {/* Current Year Upload */}
+        <div 
+          onClick={() => setIsComparisonSectionOpen(!isComparisonSectionOpen)}
+          style={{ 
+            padding: '20px 30px',
+            cursor: 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            transition: 'background 0.2s ease'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)'}
+          onMouseOut={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}
+        >
           <div>
-            <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>Current Year File</h3>
+            <h2 style={{ 
+              margin: '0 0 5px 0', 
+              color: 'white',
+              fontSize: '24px'
+            }}>📈 ACH Growth Comparison</h2>
+            <p style={{ 
+              color: 'rgba(255,255,255,0.9)', 
+              margin: 0,
+              fontSize: '14px'
+            }}>Upload current year and previous year files to compare achievement growth</p>
+          </div>
+          <span style={{ fontSize: '24px', color: 'white', fontWeight: 'bold' }}>
+            {isComparisonSectionOpen ? '▼' : '▶'}
+          </span>
+        </div>
+
+        {isComparisonSectionOpen && (
+          <div style={{ padding: '30px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+          {/* Current Year Upload - Auto-populated from first file */}
+          <div>
+            <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>
+              Current Year File 
+              <span style={{ fontSize: '12px', color: '#667eea', fontWeight: 'normal', marginLeft: '8px' }}>
+                (Auto-loaded from first upload)
+              </span>
+            </h3>
             <div
-              onDragOver={(e) => { e.preventDefault(); setIsDraggingCurrent(true); }}
-              onDragLeave={(e) => { e.preventDefault(); setIsDraggingCurrent(false); }}
-              onDrop={handleCurrentYearDrop}
               style={{
-                border: isDraggingCurrent ? '2px dashed #667eea' : '2px dashed #ddd',
-                background: isDraggingCurrent ? '#f0f4ff' : currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                border: '2px solid #667eea',
+                background: currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
                 padding: '30px',
                 textAlign: 'center',
                 borderRadius: '8px',
-                cursor: 'pointer',
                 transition: 'all 0.3s ease'
               }}
             >
@@ -582,37 +609,25 @@ function App() {
                 <div>
                   <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
                   <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
-                    File Uploaded Successfully
+                    File Loaded Successfully
                   </p>
                   <p style={{ fontSize: '13px', color: '#666' }}>
                     {currentYearData.length} plazas loaded
                   </p>
+                  <p style={{ fontSize: '12px', color: '#999', marginTop: '10px', fontStyle: 'italic' }}>
+                    Using data from the first file upload above
+                  </p>
                 </div>
               ) : (
-                <>
+                <div>
                   <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
-                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                    {isDraggingCurrent ? 'Drop file here' : 'Drag & drop or click to browse'}
+                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>
+                    Waiting for file upload
                   </p>
-                  <label style={{
-                    display: 'inline-block',
-                    padding: '10px 20px',
-                    background: '#667eea',
-                    color: 'white',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}>
-                    Browse Files
-                    <input 
-                      type="file" 
-                      accept=".xls,.xlsx" 
-                      onChange={handleCurrentYearUpload}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-                </>
+                  <p style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                    Please upload a file in the section above
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -983,6 +998,55 @@ function App() {
                     })()}
                   </div>
 
+                  {/* Shared Sort Toggle for Division and Area */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    marginBottom: '20px',
+                    padding: '15px',
+                    background: '#fff',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '14px', color: '#666', fontWeight: '600', marginRight: '10px' }}>
+                        Sort By:
+                      </span>
+                      <button
+                        onClick={() => setSortBy('amount')}
+                        style={{
+                          padding: '8px 24px',
+                          border: sortBy === 'amount' ? '2px solid #721c24' : '1px solid #ddd',
+                          background: sortBy === 'amount' ? '#f8d7da' : 'white',
+                          color: sortBy === 'amount' ? '#721c24' : '#666',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: sortBy === 'amount' ? 'bold' : 'normal',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        Amount
+                      </button>
+                      <button
+                        onClick={() => setSortBy('percent')}
+                        style={{
+                          padding: '8px 24px',
+                          border: sortBy === 'percent' ? '2px solid #721c24' : '1px solid #ddd',
+                          background: sortBy === 'percent' ? '#f8d7da' : 'white',
+                          color: sortBy === 'percent' ? '#721c24' : '#666',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: sortBy === 'percent' ? 'bold' : 'normal',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        Percentage (%)
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Details by Division */}
                   <div style={{ marginBottom: '20px' }}>
                     <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Growth/Degrowth by Division</h4>
@@ -993,7 +1057,7 @@ function App() {
                           if (!previous) return acc;
                           
                           if (!acc[current.Division]) {
-                            acc[current.Division] = { growthQty: 0, degrowthQty: 0, amount: 0 };
+                            acc[current.Division] = { growthQty: 0, degrowthQty: 0, amount: 0, previousTotal: 0, currentTotal: 0 };
                           }
                           
                           const currentAch = current?.Total_Ach ?? 0;
@@ -1006,27 +1070,59 @@ function App() {
                             acc[current.Division].degrowthQty += 1;
                           }
                           acc[current.Division].amount += diff;
+                          acc[current.Division].previousTotal += previousAch;
+                          acc[current.Division].currentTotal += currentAch;
                           
                           return acc;
-                        }, {} as Record<string, { growthQty: number; degrowthQty: number; amount: number }>);
+                        }, {} as Record<string, { growthQty: number; degrowthQty: number; amount: number; previousTotal: number; currentTotal: number }>);
 
                         return Object.entries(divisionSummary)
-                          .sort((a, b) => Math.abs(b[1].amount) - Math.abs(a[1].amount))
-                          .map(([division, data]) => {
+                          .sort((a, b) => {
+                            if (sortBy === 'amount') {
+                              return Math.abs(b[1].amount) - Math.abs(a[1].amount);
+                            } else {
+                              const percentA = a[1].previousTotal > 0 ? Math.abs((a[1].amount / a[1].previousTotal) * 100) : 0;
+                              const percentB = b[1].previousTotal > 0 ? Math.abs((b[1].amount / b[1].previousTotal) * 100) : 0;
+                              return percentB - percentA;
+                            }
+                          })
+                          .map(([division, data], index) => {
                             const isGrowth = data.amount >= 0;
+                            const growthPercent = data.previousTotal > 0 
+                              ? ((data.amount / data.previousTotal) * 100).toFixed(2)
+                              : '0.00';
                             return (
                               <div key={division} style={{ 
                                 padding: '12px', 
                                 background: 'white', 
                                 borderRadius: '6px', 
                                 border: `2px solid ${isGrowth ? '#28a745' : '#dc3545'}`,
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                position: 'relative'
                               }}>
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '8px',
+                                  right: '8px',
+                                  background: isGrowth ? '#28a745' : '#dc3545',
+                                  color: 'white',
+                                  borderRadius: '50%',
+                                  width: '24px',
+                                  height: '24px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {index + 1}
+                                </div>
                                 <h5 style={{ 
                                   margin: '0 0 10px 0', 
                                   color: isGrowth ? '#28a745' : '#721c24', 
                                   fontSize: '15px',
-                                  fontWeight: 'bold'
+                                  fontWeight: 'bold',
+                                  paddingRight: '30px'
                                 }}>
                                   {division}
                                 </h5>
@@ -1047,7 +1143,8 @@ function App() {
                                   justifyContent: 'space-between',
                                   paddingTop: '8px',
                                   borderTop: '1px solid #eee',
-                                  marginTop: '8px'
+                                  marginTop: '8px',
+                                  marginBottom: '4px'
                                 }}>
                                   <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
                                     {isGrowth ? 'Growth' : 'Degrowth'} Amount:
@@ -1058,6 +1155,21 @@ function App() {
                                     color: isGrowth ? '#28a745' : '#dc3545' 
                                   }}>
                                     {isGrowth ? '+' : ''}{data.amount.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div style={{ 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between'
+                                }}>
+                                  <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
+                                    {isGrowth ? 'Growth' : 'Degrowth'} %:
+                                  </span>
+                                  <span style={{ 
+                                    fontSize: '15px', 
+                                    fontWeight: 'bold', 
+                                    color: isGrowth ? '#28a745' : '#dc3545' 
+                                  }}>
+                                    {isGrowth ? '+' : ''}{growthPercent}%
                                   </span>
                                 </div>
                               </div>
@@ -1077,7 +1189,7 @@ function App() {
                           if (!previous) return acc;
                           
                           if (!acc[current.Area]) {
-                            acc[current.Area] = { growthQty: 0, degrowthQty: 0, amount: 0 };
+                            acc[current.Area] = { growthQty: 0, degrowthQty: 0, amount: 0, previousTotal: 0, currentTotal: 0 };
                           }
                           
                           const currentAch = current?.Total_Ach ?? 0;
@@ -1090,27 +1202,59 @@ function App() {
                             acc[current.Area].degrowthQty += 1;
                           }
                           acc[current.Area].amount += diff;
+                          acc[current.Area].previousTotal += previousAch;
+                          acc[current.Area].currentTotal += currentAch;
                           
                           return acc;
-                        }, {} as Record<string, { growthQty: number; degrowthQty: number; amount: number }>);
+                        }, {} as Record<string, { growthQty: number; degrowthQty: number; amount: number; previousTotal: number; currentTotal: number }>);
 
                         return Object.entries(areaSummary)
-                          .sort((a, b) => Math.abs(b[1].amount) - Math.abs(a[1].amount))
-                          .map(([area, data]) => {
+                          .sort((a, b) => {
+                            if (sortBy === 'amount') {
+                              return Math.abs(b[1].amount) - Math.abs(a[1].amount);
+                            } else {
+                              const percentA = a[1].previousTotal > 0 ? Math.abs((a[1].amount / a[1].previousTotal) * 100) : 0;
+                              const percentB = b[1].previousTotal > 0 ? Math.abs((b[1].amount / b[1].previousTotal) * 100) : 0;
+                              return percentB - percentA;
+                            }
+                          })
+                          .map(([area, data], index) => {
                             const isGrowth = data.amount >= 0;
+                            const growthPercent = data.previousTotal > 0 
+                              ? ((data.amount / data.previousTotal) * 100).toFixed(2)
+                              : '0.00';
                             return (
                               <div key={area} style={{ 
                                 padding: '12px', 
                                 background: 'white', 
                                 borderRadius: '6px', 
                                 border: `2px solid ${isGrowth ? '#28a745' : '#dc3545'}`,
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                position: 'relative'
                               }}>
+                                <div style={{
+                                  position: 'absolute',
+                                  top: '8px',
+                                  right: '8px',
+                                  background: isGrowth ? '#28a745' : '#dc3545',
+                                  color: 'white',
+                                  borderRadius: '50%',
+                                  width: '24px',
+                                  height: '24px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {index + 1}
+                                </div>
                                 <h5 style={{ 
                                   margin: '0 0 10px 0', 
                                   color: isGrowth ? '#28a745' : '#721c24', 
                                   fontSize: '15px',
-                                  fontWeight: 'bold'
+                                  fontWeight: 'bold',
+                                  paddingRight: '30px'
                                 }}>
                                   {area}
                                 </h5>
@@ -1131,7 +1275,8 @@ function App() {
                                   justifyContent: 'space-between',
                                   paddingTop: '8px',
                                   borderTop: '1px solid #eee',
-                                  marginTop: '8px'
+                                  marginTop: '8px',
+                                  marginBottom: '4px'
                                 }}>
                                   <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
                                     {isGrowth ? 'Growth' : 'Degrowth'} Amount:
@@ -1142,6 +1287,21 @@ function App() {
                                     color: isGrowth ? '#28a745' : '#dc3545' 
                                   }}>
                                     {isGrowth ? '+' : ''}{data.amount.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div style={{ 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between'
+                                }}>
+                                  <span style={{ fontSize: '12px', color: '#666', fontWeight: 'bold' }}>
+                                    {isGrowth ? 'Growth' : 'Degrowth'} %:
+                                  </span>
+                                  <span style={{ 
+                                    fontSize: '15px', 
+                                    fontWeight: 'bold', 
+                                    color: isGrowth ? '#28a745' : '#dc3545' 
+                                  }}>
+                                    {isGrowth ? '+' : ''}{growthPercent}%
                                   </span>
                                 </div>
                               </div>
@@ -1345,6 +1505,8 @@ function App() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
           </div>
         )}
       </div>
