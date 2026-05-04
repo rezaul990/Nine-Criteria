@@ -363,6 +363,7 @@ function App() {
           Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
           allColumns: r,
           Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+          Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
         }))
         .filter((d) => {
           const plazaName = d.Plaza?.toString().trim();
@@ -586,108 +587,111 @@ function App() {
 
         {isComparisonSectionOpen && (
           <div style={{ padding: '30px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-          {/* Current Year Upload - Auto-populated from first file */}
-          <div>
-            <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>
-              Current Year File 
-              <span style={{ fontSize: '12px', color: '#667eea', fontWeight: 'normal', marginLeft: '8px' }}>
-                (Auto-loaded from first upload)
-              </span>
-            </h3>
-            <div
-              style={{
-                border: '2px solid #667eea',
-                background: currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-                padding: '30px',
-                textAlign: 'center',
-                borderRadius: '8px',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              {currentYearData.length > 0 ? (
-                <div>
-                  <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
-                  <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
-                    File Loaded Successfully
-                  </p>
-                  <p style={{ fontSize: '13px', color: '#666' }}>
-                    {currentYearData.length} plazas loaded
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#999', marginTop: '10px', fontStyle: 'italic' }}>
-                    Using data from the first file upload above
-                  </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              
+              {/* Current Year - Auto-loaded */}
+              <div>
+                <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>
+                  Current Year File
+                  <span style={{ fontSize: '12px', color: '#667eea', fontWeight: 'normal', marginLeft: '8px' }}>
+                    (Auto-loaded from first upload)
+                  </span>
+                </h3>
+                <div style={{
+                  border: '2px solid #667eea',
+                  background: currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                  padding: '30px',
+                  textAlign: 'center',
+                  borderRadius: '8px',
+                  transition: 'all 0.3s ease'
+                }}>
+                  {currentYearData.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                      <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
+                        File Loaded Successfully
+                      </p>
+                      <p style={{ fontSize: '13px', color: '#666' }}>
+                        {currentYearData.length} plazas loaded
+                      </p>
+                      <p style={{ fontSize: '12px', color: '#999', marginTop: '8px', fontStyle: 'italic' }}>
+                        Using data from the first file upload above
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
+                      <p style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>
+                        Waiting for file upload
+                      </p>
+                      <p style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                        Please upload a file in the section above
+                      </p>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
-                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>
-                    Waiting for file upload
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
-                    Please upload a file in the section above
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* Previous Year Upload */}
-          <div>
-            <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>Previous Year File</h3>
-            <div
-              onDragOver={(e) => { e.preventDefault(); setIsDraggingPrevious(true); }}
-              onDragLeave={(e) => { e.preventDefault(); setIsDraggingPrevious(false); }}
-              onDrop={handlePreviousYearDrop}
-              style={{
-                border: isDraggingPrevious ? '2px dashed #667eea' : '2px dashed #ddd',
-                background: isDraggingPrevious ? '#f0f4ff' : previousYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-                padding: '30px',
-                textAlign: 'center',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease'
-              }}
-            >
-              {previousYearData.length > 0 ? (
-                <div>
-                  <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
-                  <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
-                    File Uploaded Successfully
-                  </p>
-                  <p style={{ fontSize: '13px', color: '#666' }}>
-                    {previousYearData.length} plazas loaded
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
-                  <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                    {isDraggingPrevious ? 'Drop file here' : 'Drag & drop or click to browse'}
-                  </p>
-                  <label style={{
-                    display: 'inline-block',
-                    padding: '10px 20px',
-                    background: '#667eea',
-                    color: 'white',
-                    borderRadius: '6px',
+              {/* Previous Year Upload */}
+              <div>
+                <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>Previous Year File</h3>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDraggingPrevious(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDraggingPrevious(false); }}
+                  onDrop={handlePreviousYearDrop}
+                  style={{
+                    border: isDraggingPrevious ? '2px dashed #667eea' : '2px dashed #ddd',
+                    background: isDraggingPrevious ? '#f0f4ff' : previousYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                    padding: '30px',
+                    textAlign: 'center',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}>
-                    Browse Files
-                    <input 
-                      type="file" 
-                      accept=".xls,.xlsx" 
-                      onChange={handlePreviousYearUpload}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-                </>
-              )}
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  {previousYearData.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                      <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
+                        File Uploaded Successfully
+                      </p>
+                      <p style={{ fontSize: '13px', color: '#666' }}>
+                        {previousYearData.length} plazas loaded
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
+                      <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                        {isDraggingPrevious ? 'Drop file here' : 'Drag & drop or click to browse'}
+                      </p>
+                      <label style={{
+                        display: 'inline-block',
+                        padding: '10px 20px',
+                        background: '#667eea',
+                        color: 'white',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}>
+                        Browse Files
+                        <input
+                          type="file"
+                          accept=".xls,.xlsx"
+                          onChange={handlePreviousYearUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
+                        Supported formats: .xlsx, .xls
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+
             </div>
-          </div>
-        </div>
 
         {/* Comparison Results */}
         {currentYearData.length > 0 && previousYearData.length > 0 && (
