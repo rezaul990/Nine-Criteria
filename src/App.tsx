@@ -69,7 +69,7 @@ function App() {
   // ACH Growth Comparison states
   const [currentYearData, setCurrentYearData] = useState<PlazaData[]>([]);
   const [previousYearData, setPreviousYearData] = useState<PlazaData[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-ignore - Used in JSX for drag and drop styling
   const [isDraggingCurrent, setIsDraggingCurrent] = useState(false);
   const [isDraggingPrevious, setIsDraggingPrevious] = useState(false);
   const [comparisonDivisionFilter, setComparisonDivisionFilter] = useState('');
@@ -498,6 +498,7 @@ function App() {
     reader.readAsArrayBuffer(file);
   };
 
+  // @ts-ignore - Used in JSX file input onChange handler
   const handleCurrentYearUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -594,6 +595,7 @@ function App() {
     reader.readAsArrayBuffer(file);
   };
 
+  // @ts-ignore - Used in JSX onDrop handler for drag and drop
   const handleCurrentYearDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingCurrent(false);
