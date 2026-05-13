@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import './App.css';
+import { sendTangailReportToTelegram } from './utils/telegram';
 
 interface PlazaData {
   Rank_No: number;
@@ -254,6 +255,50 @@ function App() {
     setAreaFilter(value);
     setPlazaFilter('');
     applyFilters(divisionFilter, value, '');
+    
+    // Send Telegram notification if Tangail area is selected
+    if (value === 'Tangail Area' && fullData.length > 0) {
+      const tangailData = fullData.filter(d => d.Area === 'Tangail Area');
+      
+      if (tangailData.length > 0) {
+        const totalTarget = tangailData.reduce((sum, d) => sum + (d.Total_Target || 0), 0);
+        const totalAch = tangailData.reduce((sum, d) => sum + (d.Total_Ach || 0), 0);
+        const avgAchv = totalTarget > 0 ? ((totalAch / totalTarget) * 100).toFixed(2) : '0.00';
+        const totalProfit = tangailData.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0);
+        
+        // Calculate growth/degrowth if comparison data exists
+        let growthPlazas: number | undefined;
+        let degrowthPlazas: number | undefined;
+        
+        if (currentYearData.length > 0 && previousYearData.length > 0) {
+          const tangailCurrent = currentYearData.filter(d => d.Area === 'Tangail Area');
+          growthPlazas = 0;
+          degrowthPlazas = 0;
+          
+          tangailCurrent.forEach(current => {
+            const previous = previousYearData.find(p => p.Plaza === current.Plaza);
+            if (previous) {
+              const currentAch = current?.Total_Ach ?? 0;
+              const previousAch = previous?.Total_Ach ?? 0;
+              if (currentAch >= previousAch) {
+                growthPlazas!++;
+              } else {
+                degrowthPlazas!++;
+              }
+            }
+          });
+        }
+        
+        sendTangailReportToTelegram({
+          totalPlazas: tangailData.length,
+          avgAchievement: avgAchv,
+          totalProfit: totalProfit,
+          growthPlazas,
+          degrowthPlazas,
+          timestamp: new Date().toLocaleString(),
+        });
+      }
+    }
   };
 
   const handlePlazaChange = (value: string) => {
