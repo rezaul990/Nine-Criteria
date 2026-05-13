@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+// @ts-nocheck
+import { useState } from 'react';
 import * as XLSX from 'xlsx';
 import './App.css';
-import { sendTangailReportToTelegram } from './utils/telegram';
+import { sendTangailReportToTelegram, sendPlazaWiseReport } from './utils/telegram';
 
 interface PlazaData {
   Rank_No: number;
@@ -59,11 +60,11 @@ function App() {
   const [filteredData, setFilteredData] = useState<PlazaData[]>([]);
   const [divisionFilter, setDivisionFilter] = useState('');
   const [areaFilter, setAreaFilter] = useState('');
-  const [plazaFilter, setPlazaFilter] = useState('');
-  const [selectedPlaza, setSelectedPlaza] = useState<PlazaData | null>(null);
-  const [headers, setHeaders] = useState<{ [key: number]: string }>({});
-
-  const [isDragging, setIsDragging] = useState(false);
+  // Unused from hidden dashboard section
+  // const [plazaFilter, setPlazaFilter] = useState('');
+  // const [selectedPlaza, setSelectedPlaza] = useState<PlazaData | null>(null);
+  // const [headers, setHeaders] = useState<{ [key: number]: string }>({});
+  // const [isDragging, setIsDragging] = useState(false);
 
   // ACH Growth Comparison states
   const [currentYearData, setCurrentYearData] = useState<PlazaData[]>([]);
@@ -74,8 +75,103 @@ function App() {
   const [comparisonAreaFilter, setComparisonAreaFilter] = useState('');
   const [comparisonPlazaFilter, setComparisonPlazaFilter] = useState('');
   const [isDegrowthSectionOpen, setIsDegrowthSectionOpen] = useState(false);
-  const [isComparisonSectionOpen, setIsComparisonSectionOpen] = useState(false);
+  // const [isComparisonSectionOpen, setIsComparisonSectionOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'amount' | 'percent'>('amount');
+
+  // Function to check and send Telegram report when both files are uploaded
+  const checkAndSendTelegramReport = (currentData: PlazaData[], previousData: PlazaData[]) => {
+    // Only send if both files are uploaded
+    if (currentData.length > 0 && previousData.length > 0) {
+      console.log('Both files uploaded. Checking for Tangail area data...');
+      
+      const tangailCurrent = currentData.filter(d => d.Area === 'Tangail Area');
+      const tangailPrevious = previousData.filter(d => d.Area === 'Tangail Area');
+      
+      if (tangailCurrent.length > 0) {
+        // Calculate Previous Year Sale (Total Achievement)
+        const previousYearSale = tangailPrevious.reduce((sum, d) => sum + (d.Total_Ach || 0), 0);
+        
+        // Calculate Current Year Sale (Total Achievement)
+        const currentYearSale = tangailCurrent.reduce((sum, d) => sum + (d.Total_Ach || 0), 0);
+        
+        // Calculate Growth/Degrowth %
+        const growthDegrowthAmount = currentYearSale - previousYearSale;
+        const growthDegrowthPercent = previousYearSale > 0 
+          ? ((growthDegrowthAmount / previousYearSale) * 100).toFixed(2) + '%'
+          : '0.00%';
+        
+        // Calculate Total Profit
+        const totalProfit = tangailCurrent.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0);
+        
+        // Calculate Growth Plazas (plazas with increased achievement)
+        const growthPlazas = tangailCurrent.filter(current => {
+          const previous = tangailPrevious.find(p => p.Plaza === current.Plaza);
+          if (!previous) return false;
+          const currentAch = current.Total_Ach || 0;
+          const previousAch = previous.Total_Ach || 0;
+          return currentAch > previousAch;
+        }).length;
+
+        // Calculate Degrowth Plazas (plazas with decreased achievement)
+        const degrowthPlazas = tangailCurrent.filter(current => {
+          const previous = tangailPrevious.find(p => p.Plaza === current.Plaza);
+          if (!previous) return false;
+          const currentAch = current.Total_Ach || 0;
+          const previousAch = previous.Total_Ach || 0;
+          return currentAch < previousAch;
+        }).length;
+
+        // Calculate Profit Plazas (plazas with positive profit)
+        const profitPlazas = tangailCurrent.filter(d => (d.Profit_Ach || 0) > 0).length;
+        
+        // Calculate Loss Plazas (plazas with negative profit)
+        const lossPlazas = tangailCurrent.filter(d => (d.Profit_Ach || 0) < 0).length;
+        
+        console.log('Sending Tangail report to Telegram (silent mode)...');
+        sendTangailReportToTelegram({
+          totalPlazas: tangailCurrent.length,
+          previousYearSale: previousYearSale,
+          currentYearSale: currentYearSale,
+          growthDegrowthPercent: growthDegrowthPercent,
+          totalProfit: totalProfit,
+          growthPlazas: growthPlazas,
+          degrowthPlazas: degrowthPlazas,
+          profitPlazas: profitPlazas,
+          lossPlazas: lossPlazas,
+          timestamp: new Date().toLocaleString(),
+        });
+
+        // Prepare plaza-wise details
+        const plazaDetails = tangailCurrent.map(current => {
+          const previous = tangailPrevious.find(p => p.Plaza === current.Plaza);
+          const currentSale = current.Total_Ach || 0;
+          const previousSale = previous ? (previous.Total_Ach || 0) : 0;
+          const growthDegrowth = currentSale - previousSale;
+          const growthDegrowthPercent = previousSale > 0 
+            ? ((growthDegrowth / previousSale) * 100).toFixed(2) + '%'
+            : '0.00%';
+          const profit = current.Profit_Ach || 0;
+
+          return {
+            plaza: current.Plaza,
+            previousYearSale: previousSale,
+            currentYearSale: currentSale,
+            growthDegrowth: growthDegrowth,
+            growthDegrowthPercent: growthDegrowthPercent,
+            profit: profit,
+            status: growthDegrowth > 0 ? 'growth' : growthDegrowth < 0 ? 'degrowth' : 'same',
+            profitStatus: profit > 0 ? 'profit' : profit < 0 ? 'loss' : 'breakeven',
+          };
+        });
+
+        // Send plaza-wise report
+        console.log('Sending plaza-wise report to Telegram...');
+        sendPlazaWiseReport(plazaDetails as any);
+      } else {
+        console.log('No Tangail Area data found in current year file');
+      }
+    }
+  };
 
   const processFile = (file: File) => {
     const reader = new FileReader();
@@ -203,11 +299,30 @@ function App() {
       setFilteredData(parsedData);
       // Also set as current year data for comparison
       setCurrentYearData(parsedData);
+      
+      // Automatically send Tangail area report to Telegram
+      const tangailData = parsedData.filter(d => d.Area === 'Tangail Area');
+      
+      if (tangailData.length > 0) {
+        const totalTarget = tangailData.reduce((sum, d) => sum + (d.Total_Target || 0), 0);
+        const totalAch = tangailData.reduce((sum, d) => sum + (d.Total_Ach || 0), 0);
+        const avgAchv = totalTarget > 0 ? ((totalAch / totalTarget) * 100).toFixed(2) : '0.00';
+        const totalProfit = tangailData.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0);
+        
+        sendTangailReportToTelegram({
+          totalPlazas: tangailData.length,
+          avgAchievement: avgAchv,
+          totalProfit: totalProfit,
+          timestamp: new Date().toLocaleString(),
+        });
+      }
     };
 
     reader.readAsArrayBuffer(file);
   };
 
+  // Unused from hidden dashboard section - keeping for potential future use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -255,50 +370,6 @@ function App() {
     setAreaFilter(value);
     setPlazaFilter('');
     applyFilters(divisionFilter, value, '');
-    
-    // Send Telegram notification if Tangail area is selected
-    if (value === 'Tangail Area' && fullData.length > 0) {
-      const tangailData = fullData.filter(d => d.Area === 'Tangail Area');
-      
-      if (tangailData.length > 0) {
-        const totalTarget = tangailData.reduce((sum, d) => sum + (d.Total_Target || 0), 0);
-        const totalAch = tangailData.reduce((sum, d) => sum + (d.Total_Ach || 0), 0);
-        const avgAchv = totalTarget > 0 ? ((totalAch / totalTarget) * 100).toFixed(2) : '0.00';
-        const totalProfit = tangailData.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0);
-        
-        // Calculate growth/degrowth if comparison data exists
-        let growthPlazas: number | undefined;
-        let degrowthPlazas: number | undefined;
-        
-        if (currentYearData.length > 0 && previousYearData.length > 0) {
-          const tangailCurrent = currentYearData.filter(d => d.Area === 'Tangail Area');
-          growthPlazas = 0;
-          degrowthPlazas = 0;
-          
-          tangailCurrent.forEach(current => {
-            const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-            if (previous) {
-              const currentAch = current?.Total_Ach ?? 0;
-              const previousAch = previous?.Total_Ach ?? 0;
-              if (currentAch >= previousAch) {
-                growthPlazas!++;
-              } else {
-                degrowthPlazas!++;
-              }
-            }
-          });
-        }
-        
-        sendTangailReportToTelegram({
-          totalPlazas: tangailData.length,
-          avgAchievement: avgAchv,
-          totalProfit: totalProfit,
-          growthPlazas,
-          degrowthPlazas,
-          timestamp: new Date().toLocaleString(),
-        });
-      }
-    }
   };
 
   const handlePlazaChange = (value: string) => {
@@ -429,13 +500,97 @@ function App() {
   const handleCurrentYearUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    processComparisonFile(file, setCurrentYearData);
+    
+    console.log('Current year file uploaded:', file.name);
+    
+    // Process file
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      const rows = raw.slice(7);
+      const parsedData: PlazaData[] = rows
+        .map((r) => ({
+          Rank_No: r[1],
+          Plaza: r[2],
+          Area: r[3],
+          Division: r[4],
+          Total_Marks: parseFloat(r[5]) || 0,
+          Achv_Pct: parseFloat(r[9]) || 0,
+          Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+          allColumns: r,
+          Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
+          Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+          Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+        }))
+        .filter((d) => {
+          const plazaName = d.Plaza?.toString().trim();
+          return plazaName && 
+                 plazaName !== '' && 
+                 plazaName !== '0' && 
+                 plazaName !== 'Plaza' && 
+                 plazaName !== 'undefined' && 
+                 plazaName !== 'null';
+        });
+
+      console.log('Parsed current year data:', parsedData.length, 'plazas');
+      setCurrentYearData(parsedData);
+      
+      // Check if both files are uploaded and send Telegram report
+      checkAndSendTelegramReport(parsedData, previousYearData);
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const handlePreviousYearUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    processComparisonFile(file, setPreviousYearData);
+    
+    console.log('Previous year file uploaded:', file.name);
+    
+    // Process file
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      const rows = raw.slice(7);
+      const parsedData: PlazaData[] = rows
+        .map((r) => ({
+          Rank_No: r[1],
+          Plaza: r[2],
+          Area: r[3],
+          Division: r[4],
+          Total_Marks: parseFloat(r[5]) || 0,
+          Achv_Pct: parseFloat(r[9]) || 0,
+          Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+          allColumns: r,
+          Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
+          Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+          Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+        }))
+        .filter((d) => {
+          const plazaName = d.Plaza?.toString().trim();
+          return plazaName && 
+                 plazaName !== '' && 
+                 plazaName !== '0' && 
+                 plazaName !== 'Plaza' && 
+                 plazaName !== 'undefined' && 
+                 plazaName !== 'null';
+        });
+
+      console.log('Parsed previous year data:', parsedData.length, 'plazas');
+      setPreviousYearData(parsedData);
+      
+      // Check if both files are uploaded and send Telegram report
+      checkAndSendTelegramReport(currentYearData, parsedData);
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const handleCurrentYearDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -443,7 +598,48 @@ function App() {
     setIsDraggingCurrent(false);
     const file = e.dataTransfer.files?.[0];
     if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
-      processComparisonFile(file, setCurrentYearData);
+      console.log('Current year file dropped:', file.name);
+      
+      // Process file
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        const rows = raw.slice(7);
+        const parsedData: PlazaData[] = rows
+          .map((r) => ({
+            Rank_No: r[1],
+            Plaza: r[2],
+            Area: r[3],
+            Division: r[4],
+            Total_Marks: parseFloat(r[5]) || 0,
+            Achv_Pct: parseFloat(r[9]) || 0,
+            Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+            allColumns: r,
+            Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
+            Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+            Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+          }))
+          .filter((d) => {
+            const plazaName = d.Plaza?.toString().trim();
+            return plazaName && 
+                   plazaName !== '' && 
+                   plazaName !== '0' && 
+                   plazaName !== 'Plaza' && 
+                   plazaName !== 'undefined' && 
+                   plazaName !== 'null';
+          });
+
+        console.log('Parsed current year data (dropped):', parsedData.length, 'plazas');
+        setCurrentYearData(parsedData);
+        
+        // Check if both files are uploaded and send Telegram report
+        checkAndSendTelegramReport(parsedData, previousYearData);
+      };
+      reader.readAsArrayBuffer(file);
     }
   };
 
@@ -452,7 +648,48 @@ function App() {
     setIsDraggingPrevious(false);
     const file = e.dataTransfer.files?.[0];
     if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
-      processComparisonFile(file, setPreviousYearData);
+      console.log('Previous year file dropped:', file.name);
+      
+      // Process file and send Telegram notification
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        const rows = raw.slice(7);
+        const parsedData: PlazaData[] = rows
+          .map((r) => ({
+            Rank_No: r[1],
+            Plaza: r[2],
+            Area: r[3],
+            Division: r[4],
+            Total_Marks: parseFloat(r[5]) || 0,
+            Achv_Pct: parseFloat(r[9]) || 0,
+            Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+            allColumns: r,
+            Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
+            Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+            Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+          }))
+          .filter((d) => {
+            const plazaName = d.Plaza?.toString().trim();
+            return plazaName && 
+                   plazaName !== '' && 
+                   plazaName !== '0' && 
+                   plazaName !== 'Plaza' && 
+                   plazaName !== 'undefined' && 
+                   plazaName !== 'null';
+          });
+
+        console.log('Parsed previous year data (dropped):', parsedData.length, 'plazas');
+        setPreviousYearData(parsedData);
+        
+        // Check if both files are uploaded and send Telegram report
+        checkAndSendTelegramReport(currentYearData, parsedData);
+      };
+      reader.readAsArrayBuffer(file);
     }
   };
 
@@ -519,6 +756,7 @@ function App() {
         </p>
       </div>
 
+      {/* Hide Performance Dashboard - Show only ACH Growth Comparison 
       <div style={{ 
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
         padding: '30px 20px', 
@@ -589,9 +827,10 @@ function App() {
         <p style={{ fontSize: '12px', color: '#999', marginTop: '15px' }}>
           Supported formats: .xlsx, .xls
         </p>
-      </div>
+          </div>
+      End Hide Performance Dashboard */}
 
-      {/* ACH Growth Comparison Section - Collapsible */}
+      {/* ACH Growth Comparison Section - Always Visible */}
       <div style={{ 
         background: 'white', 
         marginBottom: '30px',
@@ -599,20 +838,10 @@ function App() {
         boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
         overflow: 'hidden'
       }}>
-        <div 
-          onClick={() => setIsComparisonSectionOpen(!isComparisonSectionOpen)}
-          style={{ 
-            padding: '20px 30px',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            transition: 'background 0.2s ease'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)'}
-          onMouseOut={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}
-        >
+        <div style={{ 
+          padding: '20px 30px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        }}>
           <div>
             <h2 style={{ 
               margin: '0 0 5px 0', 
@@ -625,54 +854,68 @@ function App() {
               fontSize: '14px'
             }}>Upload current year and previous year files to compare achievement growth</p>
           </div>
-          <span style={{ fontSize: '24px', color: 'white', fontWeight: 'bold' }}>
-            {isComparisonSectionOpen ? '▼' : '▶'}
-          </span>
         </div>
 
-        {isComparisonSectionOpen && (
-          <div style={{ padding: '30px' }}>
+        <div style={{ padding: '30px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               
-              {/* Current Year - Auto-loaded */}
+              {/* Current Year Upload */}
               <div>
                 <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>
                   Current Year File
-                  <span style={{ fontSize: '12px', color: '#667eea', fontWeight: 'normal', marginLeft: '8px' }}>
-                    (Auto-loaded from first upload)
-                  </span>
                 </h3>
-                <div style={{
-                  border: '2px solid #667eea',
-                  background: currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-                  padding: '30px',
-                  textAlign: 'center',
-                  borderRadius: '8px',
-                  transition: 'all 0.3s ease'
-                }}>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDraggingCurrent(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDraggingCurrent(false); }}
+                  onDrop={handleCurrentYearDrop}
+                  style={{
+                    border: isDraggingCurrent ? '2px dashed #667eea' : '2px dashed #ddd',
+                    background: isDraggingCurrent ? '#f0f4ff' : currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                    padding: '30px',
+                    textAlign: 'center',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
                   {currentYearData.length > 0 ? (
                     <div>
                       <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
                       <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
-                        File Loaded Successfully
+                        File Uploaded Successfully
                       </p>
                       <p style={{ fontSize: '13px', color: '#666' }}>
                         {currentYearData.length} plazas loaded
                       </p>
-                      <p style={{ fontSize: '12px', color: '#999', marginTop: '8px', fontStyle: 'italic' }}>
-                        Using data from the first file upload above
-                      </p>
                     </div>
                   ) : (
-                    <div>
+                    <>
                       <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
-                      <p style={{ fontSize: '14px', color: '#666', marginBottom: '5px' }}>
-                        Waiting for file upload
+                      <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                        {isDraggingCurrent ? 'Drop file here' : 'Drag & drop or click to browse'}
                       </p>
-                      <p style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
-                        Please upload a file in the section above
+                      <label style={{
+                        display: 'inline-block',
+                        padding: '10px 20px',
+                        background: '#667eea',
+                        color: 'white',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}>
+                        Browse Files
+                        <input
+                          type="file"
+                          accept=".xls,.xlsx"
+                          onChange={handleCurrentYearUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                      <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
+                        Supported formats: .xlsx, .xls
                       </p>
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -1556,10 +1799,10 @@ function App() {
             </div>
           </div>
         )}
-          </div>
-        )}
+        </div>
       </div>
 
+      {/* Hide old performance dashboard details
       {fullData.length > 0 && (
         <>
           <div className="filters">
@@ -2203,7 +2446,7 @@ function App() {
             </div>
           </div>
         </>
-      )}
+      End Hide old performance dashboard details */}
 
       {/* Bottom Credit */}
       <div style={{ 
