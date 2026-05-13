@@ -69,6 +69,7 @@ function App() {
   // ACH Growth Comparison states
   const [currentYearData, setCurrentYearData] = useState<PlazaData[]>([]);
   const [previousYearData, setPreviousYearData] = useState<PlazaData[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isDraggingCurrent, setIsDraggingCurrent] = useState(false);
   const [isDraggingPrevious, setIsDraggingPrevious] = useState(false);
   const [comparisonDivisionFilter, setComparisonDivisionFilter] = useState('');
