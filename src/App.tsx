@@ -759,6 +759,55 @@ function App() {
         </p>
       </div>
 
+      {/* Download Instruction Banner */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)', 
+        padding: '20px 30px', 
+        marginBottom: '20px',
+        borderRadius: '12px',
+        textAlign: 'center',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+        border: '2px solid #d68910'
+      }}>
+        <p style={{ 
+          color: 'white', 
+          margin: '0 0 15px 0', 
+          fontSize: '18px',
+          fontWeight: '600',
+          letterSpacing: '0.3px'
+        }}>
+          📥 Download Current Year and Previous Nine Criteria Report
+        </p>
+        <a 
+          href="https://pos.waltonbd.com/pos/reports/trAchvPeriodWise25"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-block',
+            padding: '12px 40px',
+            background: 'white',
+            color: '#e67e22',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            fontSize: '16px',
+            fontWeight: '700',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+            transition: 'all 0.3s ease',
+            border: '2px solid white'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = 'scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 6px 15px rgba(0,0,0,0.3)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.2)';
+          }}
+        >
+          🔗 Click Here to Download
+        </a>
+      </div>
+
       {/* Hide Performance Dashboard - Show only ACH Growth Comparison 
       <div style={{ 
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
