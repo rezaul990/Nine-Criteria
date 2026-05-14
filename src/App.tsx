@@ -2641,23 +2641,33 @@ function App() {
               const achRow = currentYearData.find(c =>
                 c.Plaza?.toString().trim().toLowerCase() === t.PlazaName?.toString().trim().toLowerCase()
               );
+              const prevRow = previousYearData.find(p =>
+                p.Plaza?.toString().trim().toLowerCase() === t.PlazaName?.toString().trim().toLowerCase()
+              );
               const ach = achRow ? (achRow.Total_Ach || 0) : null;
+              const profitAch = achRow ? (achRow.Profit_Ach || 0) : null;
+              const prevAch = prevRow ? (prevRow.Total_Ach || 0) : null;
+              const growthPct = (ach !== null && prevAch !== null && prevAch > 0)
+                ? ((ach - prevAch) / prevAch * 100)
+                : null;
               const baseAchPct = (ach !== null && t.BaseTarget > 0) ? (ach / t.BaseTarget * 100) : null;
               const slab1AchPct = (ach !== null && t.Slab1Target > 0) ? (ach / t.Slab1Target * 100) : null;
               const slab2AchPct = (ach !== null && t.Slab2Target > 0) ? (ach / t.Slab2Target * 100) : null;
-              return { ...t, ach, baseAchPct, slab1AchPct, slab2AchPct };
+              return { ...t, ach, profitAch, prevAch, growthPct, baseAchPct, slab1AchPct, slab2AchPct };
             });
 
             // Compute aggregated data
             const divisionWiseData = Object.values(enriched.reduce((acc, row) => {
               const div = row.Division || 'Unknown';
               if (!acc[div]) {
-                acc[div] = { Division: div, BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, plazaCount: 0 };
+                acc[div] = { Division: div, BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, profitAch: 0, prevAch: 0, plazaCount: 0 };
               }
               acc[div].BaseTarget += row.BaseTarget;
               acc[div].Slab1Target += row.Slab1Target;
               acc[div].Slab2Target += row.Slab2Target;
               acc[div].ach += row.ach || 0;
+              acc[div].profitAch += row.profitAch || 0;
+              acc[div].prevAch += row.prevAch || 0;
               acc[div].plazaCount += 1;
               return acc;
             }, {} as Record<string, any>)).map((row: any) => ({
@@ -2665,17 +2675,20 @@ function App() {
               baseAchPct: row.BaseTarget > 0 ? (row.ach / row.BaseTarget * 100) : null,
               slab1AchPct: row.Slab1Target > 0 ? (row.ach / row.Slab1Target * 100) : null,
               slab2AchPct: row.Slab2Target > 0 ? (row.ach / row.Slab2Target * 100) : null,
+              growthPct: row.prevAch > 0 ? ((row.ach - row.prevAch) / row.prevAch * 100) : null,
             }));
 
             const areaWiseData = Object.values(enriched.reduce((acc, row) => {
               const key = `${row.Division}|${row.Area}`;
               if (!acc[key]) {
-                acc[key] = { Division: row.Division || 'Unknown', Area: row.Area || 'Unknown', BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, plazaCount: 0 };
+                acc[key] = { Division: row.Division || 'Unknown', Area: row.Area || 'Unknown', BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, profitAch: 0, prevAch: 0, plazaCount: 0 };
               }
               acc[key].BaseTarget += row.BaseTarget;
               acc[key].Slab1Target += row.Slab1Target;
               acc[key].Slab2Target += row.Slab2Target;
               acc[key].ach += row.ach || 0;
+              acc[key].profitAch += row.profitAch || 0;
+              acc[key].prevAch += row.prevAch || 0;
               acc[key].plazaCount += 1;
               return acc;
             }, {} as Record<string, any>)).map((row: any) => ({
@@ -2683,6 +2696,7 @@ function App() {
               baseAchPct: row.BaseTarget > 0 ? (row.ach / row.BaseTarget * 100) : null,
               slab1AchPct: row.Slab1Target > 0 ? (row.ach / row.Slab1Target * 100) : null,
               slab2AchPct: row.Slab2Target > 0 ? (row.ach / row.Slab2Target * 100) : null,
+              growthPct: row.prevAch > 0 ? ((row.ach - row.prevAch) / row.prevAch * 100) : null,
             }));
 
             // Summary totals
@@ -2798,6 +2812,8 @@ function App() {
                         {targetViewMode === 'plaza' && <th style={{ padding: '12px 10px', textAlign: 'left' }}>Plaza Name</th>}
                         {targetViewMode !== 'plaza' && <th style={{ padding: '12px 10px', textAlign: 'center' }}>Plaza Count</th>}
                         <th style={{ padding: '12px 10px', textAlign: 'right' }}>Achievement</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: 'linear-gradient(135deg, #1a9641 0%, #52b788 100%)', color: 'white' }}>Profit Ach</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', color: 'white' }}>Growth %</th>
                         <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Target</th>
                         <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Ach %</th>
                         <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Target</th>
@@ -2814,6 +2830,14 @@ function App() {
                           {targetViewMode === 'plaza' && <td style={{ padding: '10px', fontWeight: '500' }}>{row.PlazaName}</td>}
                           {targetViewMode !== 'plaza' && <td style={{ padding: '10px', textAlign: 'center', color: '#666' }}>{row.plazaCount}</td>}
                           <td style={{ padding: '10px', textAlign: 'right', fontWeight: '500' }}>{row.ach !== null ? row.ach.toLocaleString() : <span style={{ color: '#999' }}>—</span>}</td>
+                          {/* Profit Ach */}
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: row.profitAch !== null ? (row.profitAch >= 0 ? '#28a745' : '#dc3545') : '#999' }}>
+                            {row.profitAch !== null ? (row.profitAch >= 0 ? '+' : '') + row.profitAch.toLocaleString() : '—'}
+                          </td>
+                          {/* Growth % */}
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: '700', color: row.growthPct !== null ? (row.growthPct >= 0 ? '#28a745' : '#dc3545') : '#999' }}>
+                            {row.growthPct !== null ? (row.growthPct >= 0 ? '+' : '') + row.growthPct.toFixed(2) + '%' : '—'}
+                          </td>
                           {/* Base */}
                           <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === 'base' ? '#f0f4f8' : 'transparent' }}>{row.BaseTarget.toLocaleString()}</td>
                           <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === 'base' ? '#f0f4f8' : 'transparent', color: achPctColor(row.baseAchPct) }}>
@@ -2835,6 +2859,14 @@ function App() {
                       <tr style={{ background: '#2c3e50', color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
                         <td colSpan={targetViewMode === 'division' ? 2 : targetViewMode === 'area' ? 3 : 3} style={{ padding: '12px 10px' }}>TOTAL</td>
                         <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalAch.toLocaleString()}</td>
+                        {/* Total Profit Ach */}
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: enriched.reduce((s,r) => s + (r.profitAch||0), 0) >= 0 ? '#4ade80' : '#f87171' }}>
+                          {(() => { const t = enriched.reduce((s,r) => s + (r.profitAch||0), 0); return (t >= 0 ? '+' : '') + t.toLocaleString(); })()}
+                        </td>
+                        {/* Total Growth % */}
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: (() => { const tp = enriched.reduce((s,r) => s + (r.prevAch||0), 0); const tc = totalAch; return tp > 0 ? ((tc-tp)/tp*100) : 0; })() >= 0 ? '#4ade80' : '#f87171' }}>
+                          {(() => { const tp = enriched.reduce((s,r) => s + (r.prevAch||0), 0); if (tp <= 0) return '—'; const pct = ((totalAch - tp) / tp * 100); return (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%'; })()}
+                        </td>
                         <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalBase.toLocaleString()}</td>
                         <td style={{ padding: '12px 10px', textAlign: 'right', color: totalBaseAchPct >= 100 ? '#4ade80' : '#f87171' }}>{totalBaseAchPct.toFixed(2)}%</td>
                         <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalSlab1.toLocaleString()}</td>
