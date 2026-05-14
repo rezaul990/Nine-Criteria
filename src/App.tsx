@@ -1,8 +1,19 @@
 // @ts-nocheck
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import './App.css';
 import { sendTangailReportToTelegram, sendPlazaWiseReport } from './utils/telegram';
+import { db } from './firebase';
+import {
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  deleteDoc,
+  writeBatch,
+  query,
+  orderBy,
+} from 'firebase/firestore';
 
 interface PlazaData {
   Rank_No: number;
@@ -76,8 +87,123 @@ function App() {
   const [comparisonAreaFilter, setComparisonAreaFilter] = useState('');
   const [comparisonPlazaFilter, setComparisonPlazaFilter] = useState('');
   const [isDegrowthSectionOpen, setIsDegrowthSectionOpen] = useState(false);
-  // const [isComparisonSectionOpen, setIsComparisonSectionOpen] = useState(false);
+  const [isComparisonSectionOpen, setIsComparisonSectionOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'amount' | 'percent'>('amount');
+
+  // Current Month Target states
+  interface TargetRow {
+    Division: string;
+    Area: string;
+    PlazaName: string;
+    BaseTarget: number;
+    Slab1Target: number;
+    Slab2Target: number;
+  }
+  const [monthlyTargetData, setMonthlyTargetData] = useState<TargetRow[]>([]);
+  const [isDraggingTarget, setIsDraggingTarget] = useState(false);
+  const [targetDivisionFilter, setTargetDivisionFilter] = useState('');
+  const [targetAreaFilter, setTargetAreaFilter] = useState('');
+  // Which target column to highlight: 'base' | 'slab1' | 'slab2'
+  const [activeTargetSlab, setActiveTargetSlab] = useState<'base'|'slab1'|'slab2'>('base');
+  // View mode for target table
+  const [targetViewMode, setTargetViewMode] = useState<'division'|'area'|'plaza'>('area');
+
+  // Firebase sync state
+  const [isSavingTarget, setIsSavingTarget] = useState(false);
+  const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
+  const [savePreviousStatus, setSavePreviousStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [isLoadingCurrent, setIsLoadingCurrent] = useState(false);
+  const [saveCurrentStatus, setSaveCurrentStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [currentUploadedAt, setCurrentUploadedAt] = useState('');
+  
+  // Password protection state for target upload
+  const [isTargetUploadUnlocked, setIsTargetUploadUnlocked] = useState(false);
+  const [targetPasswordInput, setTargetPasswordInput] = useState('');
+  const [showTargetUploadOptions, setShowTargetUploadOptions] = useState(false);
+  
+  // Password protection state for previous year upload
+  const [isPreviousUploadUnlocked, setIsPreviousUploadUnlocked] = useState(false);
+  const [previousPasswordInput, setPreviousPasswordInput] = useState('');
+  const [showPreviousUploadOptions, setShowPreviousUploadOptions] = useState(false);
+  const [isLoadingTarget, setIsLoadingTarget] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [savedMonthLabel, setSavedMonthLabel] = useState('');
+
+  // Load saved previous month data from Firestore on mount
+  useEffect(() => {
+    const loadSavedPrevious = async () => {
+      setIsLoadingPrevious(true);
+      try {
+        const q = query(collection(db, 'previous_month_data'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const rows = snapshot.docs.map(d => d.data() as PlazaData);
+          setPreviousYearData(rows);
+          console.log('Loaded', rows.length, 'previous rows from Firestore');
+        }
+      } catch (err) {
+        console.error('Failed to load previous data from Firestore:', err);
+      } finally {
+        setIsLoadingPrevious(false);
+      }
+    };
+    loadSavedPrevious();
+  }, []);
+
+  // Load saved current year data from Firestore on mount
+  useEffect(() => {
+    const loadSavedCurrent = async () => {
+      setIsLoadingCurrent(true);
+      try {
+        const q = query(collection(db, 'current_month_data'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const rows = snapshot.docs.map(d => d.data() as PlazaData);
+          setCurrentYearData(rows);
+          try {
+            const metaSnap = await getDocs(collection(db, 'current_month_meta'));
+            if (!metaSnap.empty) {
+              setCurrentUploadedAt(metaSnap.docs[0].data().updatedAt || '');
+            }
+          } catch (_) {}
+          console.log('Loaded', rows.length, 'current rows from Firestore');
+        }
+      } catch (err) {
+        console.error('Failed to load current data from Firestore:', err);
+      } finally {
+        setIsLoadingCurrent(false);
+      }
+    };
+    loadSavedCurrent();
+  }, []);
+
+  // Load saved target data from Firestore on mount
+  useEffect(() => {
+    const loadSavedTarget = async () => {
+      setIsLoadingTarget(true);
+      try {
+        const q = query(collection(db, 'monthly_targets'), orderBy('Division'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const rows = snapshot.docs.map(d => d.data() as TargetRow);
+          setMonthlyTargetData(rows);
+          // Try to get saved month label from meta doc
+          try {
+            const metaSnap = await getDocs(collection(db, 'monthly_targets_meta'));
+            if (!metaSnap.empty) {
+              setSavedMonthLabel(metaSnap.docs[0].data().monthLabel || '');
+            }
+          } catch (_) {}
+          console.log('Loaded', rows.length, 'rows from Firestore');
+        }
+      } catch (err) {
+        console.error('Failed to load target from Firestore:', err);
+      } finally {
+        setIsLoadingTarget(false);
+      }
+    };
+    loadSavedTarget();
+  }, []);
 
   // Function to check and send Telegram report when both files are uploaded
   const checkAndSendTelegramReport = (currentData: PlazaData[], previousData: PlazaData[]) => {
@@ -540,6 +666,7 @@ function App() {
 
       console.log('Parsed current year data:', parsedData.length, 'plazas');
       setCurrentYearData(parsedData);
+      saveCurrentToFirestore(parsedData);
       
       // Check if both files are uploaded and send Telegram report
       checkAndSendTelegramReport(parsedData, previousYearData);
@@ -588,6 +715,7 @@ function App() {
 
       console.log('Parsed previous year data:', parsedData.length, 'plazas');
       setPreviousYearData(parsedData);
+      savePreviousToFirestore(parsedData);
       
       // Check if both files are uploaded and send Telegram report
       checkAndSendTelegramReport(currentYearData, parsedData);
@@ -638,6 +766,7 @@ function App() {
 
         console.log('Parsed current year data (dropped):', parsedData.length, 'plazas');
         setCurrentYearData(parsedData);
+        saveCurrentToFirestore(parsedData);
         
         // Check if both files are uploaded and send Telegram report
         checkAndSendTelegramReport(parsedData, previousYearData);
@@ -688,6 +817,7 @@ function App() {
 
         console.log('Parsed previous year data (dropped):', parsedData.length, 'plazas');
         setPreviousYearData(parsedData);
+        savePreviousToFirestore(parsedData);
         
         // Check if both files are uploaded and send Telegram report
         checkAndSendTelegramReport(currentYearData, parsedData);
@@ -695,6 +825,234 @@ function App() {
       reader.readAsArrayBuffer(file);
     }
   };
+
+  // Save parsed rows to Firestore (collection: monthly_targets)
+  const saveTargetToFirestore = async (rows: TargetRow[], monthLabel: string) => {
+    setIsSavingTarget(true);
+    setSaveStatus('saving');
+    try {
+      // Delete existing docs first, then batch write new ones
+      const existingSnap = await getDocs(collection(db, 'monthly_targets'));
+      const deleteBatch = writeBatch(db);
+      existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      // Write new docs in batches of 500 (Firestore limit)
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        rows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
+          const docId = `${row.PlazaName.replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
+          batch.set(doc(db, 'monthly_targets', docId), row);
+        });
+        await batch.commit();
+      }
+
+      // Save month label meta
+      await setDoc(doc(db, 'monthly_targets_meta', 'current'), {
+        monthLabel,
+        updatedAt: new Date().toISOString(),
+        rowCount: rows.length,
+      });
+
+      setSavedMonthLabel(monthLabel);
+      setSaveStatus('saved');
+      console.log('Saved', rows.length, 'rows to Firestore');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Failed to save to Firestore:', err);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 5000);
+    } finally {
+      setIsSavingTarget(false);
+    }
+  };
+
+  const saveCurrentToFirestore = async (rows: PlazaData[]) => {
+    setSaveCurrentStatus('saving');
+    try {
+      const existingSnap = await getDocs(collection(db, 'current_month_data'));
+      const deleteBatch = writeBatch(db);
+      existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      const BATCH_SIZE = 400;
+      const cleanRows = rows.map(r => ({
+        Rank_No: r.Rank_No || 0,
+        Plaza: r.Plaza || '',
+        Area: r.Area || '',
+        Division: r.Division || '',
+        Total_Marks: r.Total_Marks || 0,
+        Achv_Pct: r.Achv_Pct || 0,
+        Profit_Achv: r.Profit_Achv || 0,
+        Total_Target: r.Total_Target || 0,
+        Total_Ach: r.Total_Ach || 0,
+        Profit_Ach: r.Profit_Ach || 0,
+      }));
+
+      for (let i = 0; i < cleanRows.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        cleanRows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
+          const docId = `${(row.Plaza || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
+          batch.set(doc(db, 'current_month_data', docId), row);
+        });
+        await batch.commit();
+      }
+
+      const timestamp = new Date().toLocaleString();
+      await setDoc(doc(db, 'current_month_meta', 'current'), {
+        updatedAt: timestamp,
+        rowCount: rows.length,
+      });
+      setCurrentUploadedAt(timestamp);
+
+      setSaveCurrentStatus('saved');
+      console.log('Saved', cleanRows.length, 'current rows to Firestore');
+      setTimeout(() => setSaveCurrentStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Failed to save current data to Firestore:', err);
+      setSaveCurrentStatus('error');
+      setTimeout(() => setSaveCurrentStatus('idle'), 5000);
+    }
+  };
+
+  const savePreviousToFirestore = async (rows: PlazaData[]) => {
+    setSavePreviousStatus('saving');
+    try {
+      const existingSnap = await getDocs(collection(db, 'previous_month_data'));
+      const deleteBatch = writeBatch(db);
+      existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      const BATCH_SIZE = 400;
+      // Filter out allColumns and just save needed keys to prevent size issues
+      const cleanRows = rows.map(r => ({
+        Rank_No: r.Rank_No || 0,
+        Plaza: r.Plaza || '',
+        Area: r.Area || '',
+        Division: r.Division || '',
+        Total_Marks: r.Total_Marks || 0,
+        Achv_Pct: r.Achv_Pct || 0,
+        Profit_Achv: r.Profit_Achv || 0,
+        Total_Target: r.Total_Target || 0,
+        Total_Ach: r.Total_Ach || 0,
+        Profit_Ach: r.Profit_Ach || 0,
+      }));
+
+      for (let i = 0; i < cleanRows.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        cleanRows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
+          const docId = `${(row.Plaza || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
+          batch.set(doc(db, 'previous_month_data', docId), row);
+        });
+        await batch.commit();
+      }
+
+      setSavePreviousStatus('saved');
+      console.log('Saved', cleanRows.length, 'previous rows to Firestore');
+      setTimeout(() => setSavePreviousStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Failed to save previous data to Firestore:', err);
+      setSavePreviousStatus('error');
+      setTimeout(() => setSavePreviousStatus('idle'), 5000);
+    }
+  };
+
+  const clearFirestorePrevious = async () => {
+    if (!confirm('Are you sure you want to clear the saved previous month data from the database?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'previous_month_data'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      setPreviousYearData([]);
+      setSavePreviousStatus('idle');
+      console.log('Cleared Firestore previous data');
+    } catch (err) {
+      console.error('Failed to clear Firestore previous data:', err);
+    }
+  };
+
+  const clearFirestoreCurrent = async () => {
+    if (!confirm('Are you sure you want to clear the saved current year data from the database?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'current_month_data'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      
+      const metaSnap = await getDocs(collection(db, 'current_month_meta'));
+      const mb = writeBatch(db);
+      metaSnap.docs.forEach(d => mb.delete(d.ref));
+      await mb.commit();
+      
+      setCurrentYearData([]);
+      setCurrentUploadedAt('');
+      setSaveCurrentStatus('idle');
+      console.log('Cleared Firestore current data');
+    } catch (err) {
+      console.error('Failed to clear Firestore current data:', err);
+    }
+  };
+
+  // Clear saved target data from Firestore
+  const clearFirestoreTarget = async () => {
+    if (!confirm('Are you sure you want to clear the saved target data from the database?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'monthly_targets'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      const metaSnap = await getDocs(collection(db, 'monthly_targets_meta'));
+      const mb = writeBatch(db);
+      metaSnap.docs.forEach(d => mb.delete(d.ref));
+      await mb.commit();
+      setMonthlyTargetData([]);
+      setSavedMonthLabel('');
+      setSaveStatus('idle');
+      console.log('Cleared Firestore target data');
+    } catch (err) {
+      console.error('Failed to clear Firestore:', err);
+    }
+  };
+
+  // Process the monthly target file (columns: Division, Area, Plaza Name, Base Target, Slab-1, Slab-2)
+  const processTargetFile = (file: File, monthLabel?: string) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // Auto-detect header row: skip row 0 if col D is non-numeric (it's a header)
+      const firstDataRow = raw[0] && isNaN(parseFloat((raw[0][3] || '').toString().replace(/,/g, ''))) ? 1 : 0;
+      const rows = raw.slice(firstDataRow);
+
+      const parsed = rows
+        .map((r) => ({
+          Division: (r[0] || '').toString().trim(),
+          Area: (r[1] || '').toString().trim(),
+          PlazaName: (r[2] || '').toString().trim(),
+          BaseTarget: parseFloat((r[3] || '').toString().replace(/,/g, '')) || 0,
+          Slab1Target: parseFloat((r[4] || '').toString().replace(/,/g, '')) || 0,
+          Slab2Target: parseFloat((r[5] || '').toString().replace(/,/g, '')) || 0,
+        }))
+        .filter((d) => {
+          const name = d.PlazaName;
+          return name && name !== '' && name !== '0' && name.toLowerCase() !== 'plaza name' && name.toLowerCase() !== 'plaza';
+        });
+
+      console.log('Target file parsed:', parsed.length, 'rows');
+      setMonthlyTargetData(parsed);
+
+      // Auto-derive month label from filename or use provided
+      const label = monthLabel || file.name.replace(/\.(xlsx?)/i, '') || new Date().toLocaleDateString('en-BD', { month: 'long', year: 'numeric' });
+      saveTargetToFirestore(parsed, label);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
 
   // Comparison filter handlers
   const handleComparisonDivisionChange = (value: string) => {
@@ -909,6 +1267,12 @@ function App() {
         </div>
 
         <div style={{ padding: '30px' }}>
+            {isLoadingPrevious && (
+              <div style={{ textAlign: 'center', padding: '10px', color: '#667eea', fontSize: '14px', marginBottom: '15px' }}>
+                <span style={{ display: 'inline-block', marginRight: '8px', animation: 'spin 1s linear infinite' }}>⏳</span>
+                Loading previous month data from database...
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               
               {/* Current Year Upload */}
@@ -934,11 +1298,61 @@ function App() {
                     <div>
                       <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
                       <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
-                        File Uploaded Successfully
+                        File Loaded Successfully
                       </p>
-                      <p style={{ fontSize: '13px', color: '#666' }}>
+                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
                         {currentYearData.length} plazas loaded
                       </p>
+                      
+                      {currentUploadedAt && (
+                        <p style={{ fontSize: '12px', color: '#555', marginBottom: '12px' }}>
+                          📅 Uploaded: <strong>{currentUploadedAt}</strong>
+                        </p>
+                      )}
+
+                      <div style={{ marginBottom: '12px' }}>
+                        {saveCurrentStatus === 'saving' && (
+                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#fff3cd', color: '#856404', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                            ☁️ Saving to database...
+                          </span>
+                        )}
+                        {saveCurrentStatus === 'saved' && (
+                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d4edda', color: '#155724', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                            ✅ Saved to Firebase
+                          </span>
+                        )}
+                        {saveCurrentStatus === 'error' && (
+                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#f8d7da', color: '#721c24', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                            ❌ Save failed
+                          </span>
+                        )}
+                        {saveCurrentStatus === 'idle' && (
+                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                            ☁️ Synced with Firebase
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <label style={{
+                          display: 'inline-block',
+                          padding: '8px 20px',
+                          background: '#667eea',
+                          color: 'white',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}>
+                          Re-upload
+                          <input type="file" accept=".xls,.xlsx" onChange={handleCurrentYearUpload} style={{ display: 'none' }} />
+                        </label>
+                        <button
+                          onClick={clearFirestoreCurrent}
+                          style={{ padding: '8px 20px', background: 'white', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                        >
+                          🗑️ Clear DB
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -974,71 +1388,224 @@ function App() {
 
               {/* Previous Year Upload */}
               <div>
-                <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>Previous Year File</h3>
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setIsDraggingPrevious(true); }}
-                  onDragLeave={(e) => { e.preventDefault(); setIsDraggingPrevious(false); }}
-                  onDrop={handlePreviousYearDrop}
-                  style={{
-                    border: isDraggingPrevious ? '2px dashed #667eea' : '2px dashed #ddd',
-                    background: isDraggingPrevious ? '#f0f4ff' : previousYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-                    padding: '30px',
-                    textAlign: 'center',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
-                  }}
-                >
-                  {previousYearData.length > 0 ? (
-                    <div>
-                      <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
-                      <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
-                        File Uploaded Successfully
-                      </p>
-                      <p style={{ fontSize: '13px', color: '#666' }}>
-                        {previousYearData.length} plazas loaded
-                      </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h3 style={{ fontSize: '16px', margin: 0, color: '#333' }}>Previous Year File</h3>
+                  <button 
+                    onClick={() => setShowPreviousUploadOptions(!showPreviousUploadOptions)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#667eea',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '12px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    {showPreviousUploadOptions ? 'Hide Options' : 'Manage Upload 🔒'}
+                  </button>
+                </div>
+
+                {!showPreviousUploadOptions && (
+                  <div style={{ padding: '30px', background: previousYearData.length > 0 ? '#e8f5e9' : '#f8d7da', textAlign: 'center', borderRadius: '8px', border: previousYearData.length > 0 ? '1px solid #c3e6cb' : '1px solid #f5c6cb' }}>
+                    {previousYearData.length > 0 ? (
+                      <>
+                        <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                        <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>File Loaded</p>
+                        <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>{previousYearData.length} plazas loaded</p>
+                        <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                          ☁️ Synced with Firebase
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '36px', marginBottom: '10px' }}>⚠️</div>
+                        <p style={{ color: '#721c24', fontWeight: 'bold', marginBottom: '5px' }}>No Previous Data</p>
+                        <p style={{ fontSize: '13px', color: '#666' }}>Unlock to upload data.</p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {showPreviousUploadOptions && (
+                  !isPreviousUploadUnlocked ? (
+                    <div style={{ textAlign: 'center', padding: '30px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #ddd' }}>
+                      <h4 style={{ marginBottom: '10px', color: '#333', fontSize: '14px' }}>🔒 Password Required</h4>
+                      <p style={{ color: '#666', marginBottom: '15px', fontSize: '12px' }}>Enter password to upload previous month data.</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                        <input
+                          type="password"
+                          placeholder="Password..."
+                          value={previousPasswordInput}
+                          onChange={(e) => setPreviousPasswordInput(e.target.value)}
+                          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', outline: 'none', width: '100%', maxWidth: '200px' }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (previousPasswordInput === '123456') {
+                                setIsPreviousUploadUnlocked(true);
+                                setPreviousPasswordInput('');
+                              } else {
+                                alert('Incorrect password!');
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            if (previousPasswordInput === '123456') {
+                              setIsPreviousUploadUnlocked(true);
+                              setPreviousPasswordInput('');
+                            } else {
+                              alert('Incorrect password!');
+                            }
+                          }}
+                          style={{ padding: '8px 16px', background: '#667eea', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', width: '100%', maxWidth: '200px' }}
+                        >
+                          Unlock
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <>
-                      <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
-                      <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                        {isDraggingPrevious ? 'Drop file here' : 'Drag & drop or click to browse'}
-                      </p>
-                      <label style={{
-                        display: 'inline-block',
-                        padding: '10px 20px',
-                        background: '#667eea',
-                        color: 'white',
-                        borderRadius: '6px',
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingPrevious(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsDraggingPrevious(false); }}
+                      onDrop={handlePreviousYearDrop}
+                      style={{
+                        border: isDraggingPrevious ? '2px dashed #667eea' : '2px dashed #ddd',
+                        background: isDraggingPrevious ? '#f0f4ff' : previousYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                        padding: '30px',
+                        textAlign: 'center',
+                        borderRadius: '8px',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}>
-                        Browse Files
-                        <input
-                          type="file"
-                          accept=".xls,.xlsx"
-                          onChange={handlePreviousYearUpload}
-                          style={{ display: 'none' }}
-                        />
-                      </label>
-                      <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
-                        Supported formats: .xlsx, .xls
-                      </p>
-                    </>
-                  )}
-                </div>
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      {previousYearData.length > 0 ? (
+                        <div>
+                          <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                          <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
+                            File Loaded Successfully
+                          </p>
+                          <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>
+                            {previousYearData.length} plazas loaded
+                          </p>
+                          
+                          <div style={{ marginBottom: '12px' }}>
+                            {savePreviousStatus === 'saving' && (
+                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#fff3cd', color: '#856404', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                                ☁️ Saving to database...
+                              </span>
+                            )}
+                            {savePreviousStatus === 'saved' && (
+                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d4edda', color: '#155724', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                                ✅ Saved to Firebase
+                              </span>
+                            )}
+                            {savePreviousStatus === 'error' && (
+                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#f8d7da', color: '#721c24', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                                ❌ Save failed
+                              </span>
+                            )}
+                            {savePreviousStatus === 'idle' && (
+                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                                ☁️ Synced with Firebase
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <label style={{
+                              display: 'inline-block',
+                              padding: '8px 20px',
+                              background: '#667eea',
+                              color: 'white',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px'
+                            }}>
+                              Re-upload
+                              <input type="file" accept=".xls,.xlsx" onChange={handlePreviousYearUpload} style={{ display: 'none' }} />
+                            </label>
+                            <button
+                              onClick={clearFirestorePrevious}
+                              style={{ padding: '8px 20px', background: 'white', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                            >
+                              🗑️ Clear DB
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
+                          <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                            {isDraggingPrevious ? 'Drop file here' : 'Drag & drop or click to browse'}
+                          </p>
+                          <label style={{
+                            display: 'inline-block',
+                            padding: '10px 20px',
+                            background: '#667eea',
+                            color: 'white',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: '500'
+                          }}>
+                            Browse Files
+                            <input
+                              type="file"
+                              accept=".xls,.xlsx"
+                              onChange={handlePreviousYearUpload}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                          <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
+                            Supported formats: .xlsx, .xls
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )
+                )}
               </div>
 
             </div>
 
         {/* Comparison Results */}
         {currentYearData.length > 0 && previousYearData.length > 0 && (
-          <div style={{ marginTop: '30px' }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '15px', color: '#333' }}>Growth Comparison Results</h3>
-            
-            {/* Comparison Filters */}
+          <div style={{ 
+            marginTop: '30px', 
+            background: '#fff', 
+            borderRadius: '8px', 
+            border: '1px solid #e0e0e0', 
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+          }}>
+            <div 
+              onClick={() => setIsComparisonSectionOpen(!isComparisonSectionOpen)}
+              style={{ 
+                padding: '15px 20px',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: '#f8f9fa',
+                transition: 'background 0.2s ease',
+                borderBottom: isComparisonSectionOpen ? '1px solid #e0e0e0' : 'none'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = '#e9ecef'}
+              onMouseOut={(e) => e.currentTarget.style.background = '#f8f9fa'}
+            >
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#333' }}>
+                📊 Growth Comparison Results
+              </h3>
+              <span style={{ fontSize: '20px', color: '#333' }}>
+                {isComparisonSectionOpen ? '▼' : '▶'}
+              </span>
+            </div>
+
+            {isComparisonSectionOpen && (
+              <div style={{ padding: '20px' }}>
+                {/* Comparison Filters */}
             <div style={{ 
               display: 'flex', 
               gap: '15px', 
@@ -1817,7 +2384,7 @@ function App() {
                     
                     return (
                       <tr style={{ 
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                        background: '#2c3e50', 
                         color: 'white', 
                         fontWeight: 'bold',
                         fontSize: '15px'
@@ -1826,19 +2393,19 @@ function App() {
                         <td>{totalPreviousAch.toLocaleString()}</td>
                         <td>{totalCurrentAch.toLocaleString()}</td>
                         <td style={{ 
-                          color: totalProfitAch >= 0 ? '#90EE90' : '#FFB6C1',
+                          color: totalProfitAch >= 0 ? '#4ade80' : '#f87171',
                           fontWeight: 'bold'
                         }}>
                           {totalProfitAch.toLocaleString()}
                         </td>
                         <td style={{ 
-                          color: totalGrowthAmount >= 0 ? '#90EE90' : '#FFB6C1',
+                          color: totalGrowthAmount >= 0 ? '#4ade80' : '#f87171',
                           fontWeight: 'bold'
                         }}>
                           {totalGrowthAmount >= 0 ? '+' : ''}{totalGrowthAmount.toLocaleString()}
                         </td>
                         <td style={{ 
-                          color: parseFloat(totalGrowthPercent) >= 0 ? '#90EE90' : '#FFB6C1',
+                          color: parseFloat(totalGrowthPercent) >= 0 ? '#4ade80' : '#f87171',
                           fontWeight: 'bold'
                         }}>
                           {parseFloat(totalGrowthPercent) >= 0 ? '+' : ''}{totalGrowthPercent}%
@@ -1849,10 +2416,448 @@ function App() {
                 </tbody>
               </table>
             </div>
+              </div>
+            )}
           </div>
         )}
         </div>
       </div>
+
+      {/* ===== CURRENT MONTH ACHIEVEMENT SECTION ===== */}
+      <div style={{
+        background: 'white',
+        marginBottom: '30px',
+        borderRadius: '12px',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+        overflow: 'hidden'
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px 30px',
+          background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+        }}>
+          <h2 style={{ margin: '0 0 5px 0', color: 'white', fontSize: '24px' }}>
+            🎯 Current Month Achievement
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.9)', margin: 0, fontSize: '14px' }}>
+            Upload the current month target file to see Base / Slab-1 / Slab-2 achievement
+          </p>
+        </div>
+
+        <div style={{ padding: '30px' }}>
+          {/* Loading from DB indicator */}
+          {isLoadingTarget && (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#11998e', fontSize: '14px', marginBottom: '15px' }}>
+              <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px', animation: 'spin 1s linear infinite' }}>⏳</span>
+              Loading saved target data from database...
+            </div>
+          )}
+
+          {/* Toggle Upload Options Button */}
+          <div style={{ textAlign: 'right', marginBottom: '15px' }}>
+            <button 
+              onClick={() => setShowTargetUploadOptions(!showTargetUploadOptions)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#11998e',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                textDecoration: 'underline'
+              }}
+            >
+              {showTargetUploadOptions ? 'Hide Upload Options' : 'Show Upload Options 🔒'}
+            </button>
+          </div>
+
+          {showTargetUploadOptions && (
+            <div style={{ marginBottom: '25px' }}>
+              {!isTargetUploadUnlocked ? (
+                <div style={{ textAlign: 'center', padding: '30px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #ddd' }}>
+                  <h3 style={{ marginBottom: '10px', color: '#333' }}>🔒 Password Required</h3>
+                  <p style={{ color: '#666', marginBottom: '15px', fontSize: '14px' }}>Please enter the password to upload or manage target files.</p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                    <input
+                      type="password"
+                      placeholder="Enter password..."
+                      value={targetPasswordInput}
+                      onChange={(e) => setTargetPasswordInput(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', outline: 'none', width: '200px' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (targetPasswordInput === '123456') {
+                            setIsTargetUploadUnlocked(true);
+                            setTargetPasswordInput('');
+                          } else {
+                            alert('Incorrect password!');
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (targetPasswordInput === '123456') {
+                          setIsTargetUploadUnlocked(true);
+                          setTargetPasswordInput('');
+                        } else {
+                          alert('Incorrect password!');
+                        }
+                      }}
+                      style={{ padding: '8px 16px', background: '#11998e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      Unlock
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Upload Box */
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDraggingTarget(true); }}
+            onDragLeave={(e) => { e.preventDefault(); setIsDraggingTarget(false); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDraggingTarget(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                processTargetFile(file);
+              }
+            }}
+            style={{
+              border: isDraggingTarget ? '2px dashed #11998e' : '2px dashed #ddd',
+              background: isDraggingTarget ? '#e6fff8' : monthlyTargetData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+              padding: '30px',
+              textAlign: 'center',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              marginBottom: '25px'
+            }}
+          >
+            {monthlyTargetData.length > 0 ? (
+              <div>
+                <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
+                <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>Target File Loaded</p>
+                <p style={{ fontSize: '13px', color: '#666', marginBottom: '6px' }}>{monthlyTargetData.length} plazas loaded</p>
+                {savedMonthLabel && (
+                  <p style={{ fontSize: '12px', color: '#11998e', fontWeight: '600', marginBottom: '10px' }}>
+                    🗓️ {savedMonthLabel}
+                  </p>
+                )}
+
+                {/* Firebase sync status badge */}
+                <div style={{ marginBottom: '12px' }}>
+                  {saveStatus === 'saving' && (
+                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#fff3cd', color: '#856404', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                      ☁️ Saving to database...
+                    </span>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d4edda', color: '#155724', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                      ✅ Saved to Firebase
+                    </span>
+                  )}
+                  {saveStatus === 'error' && (
+                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#f8d7da', color: '#721c24', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                      ❌ Save failed — check Firebase config
+                    </span>
+                  )}
+                  {saveStatus === 'idle' && savedMonthLabel && (
+                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                      ☁️ Synced with Firebase
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <label style={{
+                    display: 'inline-block',
+                    padding: '8px 20px',
+                    background: '#11998e',
+                    color: 'white',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}>
+                    Re-upload
+                    <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) processTargetFile(f); }} style={{ display: 'none' }} />
+                  </label>
+                  <button
+                    onClick={clearFirestoreTarget}
+                    style={{ padding: '8px 20px', background: 'white', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    🗑️ Clear DB
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: '36px', marginBottom: '10px' }}>📊</div>
+                <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                  {isDraggingTarget ? 'Drop the target file here' : 'Drag & drop the target Excel file or click to browse'}
+                </p>
+                <p style={{ fontSize: '12px', color: '#888', marginBottom: '15px', fontStyle: 'italic' }}>
+                  💡 Previously saved data loads automatically from Firebase on each visit
+                </p>
+                <label style={{
+                  display: 'inline-block',
+                  padding: '10px 20px',
+                  background: '#11998e',
+                  color: 'white',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  Browse Files
+                  <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) processTargetFile(f); }} style={{ display: 'none' }} />
+                </label>
+                <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>Supported formats: .xlsx, .xls</p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Results */}
+          {monthlyTargetData.length > 0 && (() => {
+            // Slab toggle
+            // Filters
+            const targetDivisions = [...new Set(monthlyTargetData.map(d => d.Division))];
+            const targetAreas = [...new Set(
+              monthlyTargetData
+                .filter(d => !targetDivisionFilter || d.Division === targetDivisionFilter)
+                .map(d => d.Area)
+            )];
+
+            const filteredTarget = monthlyTargetData.filter(t =>
+              (!targetDivisionFilter || t.Division === targetDivisionFilter) &&
+              (!targetAreaFilter || t.Area === targetAreaFilter)
+            );
+
+            // Match achievement from currentYearData
+            const enriched = filteredTarget.map(t => {
+              const achRow = currentYearData.find(c =>
+                c.Plaza?.toString().trim().toLowerCase() === t.PlazaName?.toString().trim().toLowerCase()
+              );
+              const ach = achRow ? (achRow.Total_Ach || 0) : null;
+              const baseAchPct = (ach !== null && t.BaseTarget > 0) ? (ach / t.BaseTarget * 100) : null;
+              const slab1AchPct = (ach !== null && t.Slab1Target > 0) ? (ach / t.Slab1Target * 100) : null;
+              const slab2AchPct = (ach !== null && t.Slab2Target > 0) ? (ach / t.Slab2Target * 100) : null;
+              return { ...t, ach, baseAchPct, slab1AchPct, slab2AchPct };
+            });
+
+            // Compute aggregated data
+            const divisionWiseData = Object.values(enriched.reduce((acc, row) => {
+              const div = row.Division || 'Unknown';
+              if (!acc[div]) {
+                acc[div] = { Division: div, BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, plazaCount: 0 };
+              }
+              acc[div].BaseTarget += row.BaseTarget;
+              acc[div].Slab1Target += row.Slab1Target;
+              acc[div].Slab2Target += row.Slab2Target;
+              acc[div].ach += row.ach || 0;
+              acc[div].plazaCount += 1;
+              return acc;
+            }, {} as Record<string, any>)).map((row: any) => ({
+              ...row,
+              baseAchPct: row.BaseTarget > 0 ? (row.ach / row.BaseTarget * 100) : null,
+              slab1AchPct: row.Slab1Target > 0 ? (row.ach / row.Slab1Target * 100) : null,
+              slab2AchPct: row.Slab2Target > 0 ? (row.ach / row.Slab2Target * 100) : null,
+            }));
+
+            const areaWiseData = Object.values(enriched.reduce((acc, row) => {
+              const key = `${row.Division}|${row.Area}`;
+              if (!acc[key]) {
+                acc[key] = { Division: row.Division || 'Unknown', Area: row.Area || 'Unknown', BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, plazaCount: 0 };
+              }
+              acc[key].BaseTarget += row.BaseTarget;
+              acc[key].Slab1Target += row.Slab1Target;
+              acc[key].Slab2Target += row.Slab2Target;
+              acc[key].ach += row.ach || 0;
+              acc[key].plazaCount += 1;
+              return acc;
+            }, {} as Record<string, any>)).map((row: any) => ({
+              ...row,
+              baseAchPct: row.BaseTarget > 0 ? (row.ach / row.BaseTarget * 100) : null,
+              slab1AchPct: row.Slab1Target > 0 ? (row.ach / row.Slab1Target * 100) : null,
+              slab2AchPct: row.Slab2Target > 0 ? (row.ach / row.Slab2Target * 100) : null,
+            }));
+
+            // Summary totals
+            const totalBase = enriched.reduce((s, r) => s + r.BaseTarget, 0);
+            const totalSlab1 = enriched.reduce((s, r) => s + r.Slab1Target, 0);
+            const totalSlab2 = enriched.reduce((s, r) => s + r.Slab2Target, 0);
+            const totalAch = enriched.reduce((s, r) => s + (r.ach || 0), 0);
+            const totalBaseAchPct = totalBase > 0 ? (totalAch / totalBase * 100) : 0;
+            const totalSlab1AchPct = totalSlab1 > 0 ? (totalAch / totalSlab1 * 100) : 0;
+            const totalSlab2AchPct = totalSlab2 > 0 ? (totalAch / totalSlab2 * 100) : 0;
+
+            const achPctColor = (pct: number | null) => {
+              if (pct === null) return '#999';
+              if (pct >= 100) return '#28a745';
+              if (pct >= 80) return '#ff9800';
+              return '#dc3545';
+            };
+
+            return (
+              <>
+                {/* Slab Toggle */}
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#555' }}>Highlight Target:</span>
+                  {(['base', 'slab1', 'slab2'] as const).map(slab => (
+                    <button
+                      key={slab}
+                      onClick={() => setActiveTargetSlab(slab)}
+                      style={{
+                        padding: '8px 20px',
+                        border: activeTargetSlab === slab ? '2px solid #11998e' : '1px solid #ddd',
+                        background: activeTargetSlab === slab ? '#e6fff8' : 'white',
+                        color: activeTargetSlab === slab ? '#11998e' : '#666',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: activeTargetSlab === slab ? 'bold' : 'normal',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {slab === 'base' ? 'Base Target' : slab === 'slab1' ? 'Slab-1 (680 Cr)' : 'Slab-2 (800 Cr)'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* View Mode Toggle */}
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                  {(['division', 'area', 'plaza'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setTargetViewMode(mode)}
+                      style={{
+                        padding: '8px 20px',
+                        border: targetViewMode === mode ? 'none' : '1px solid #ddd',
+                        background: targetViewMode === mode ? 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' : 'white',
+                        color: targetViewMode === mode ? 'white' : '#666',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s ease',
+                        boxShadow: targetViewMode === mode ? '0 2px 8px rgba(17,153,142,0.3)' : 'none'
+                      }}
+                    >
+                      {mode === 'division' ? '1. Division Wise Summary' : mode === 'area' ? '2. Area Wise Summary' : '3. Existing (Plaza Wise)'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Filters */}
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
+                  <select
+                    value={targetDivisionFilter}
+                    onChange={e => { setTargetDivisionFilter(e.target.value); setTargetAreaFilter(''); }}
+                    style={{ padding: '10px 14px', minWidth: '180px', border: '2px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', background: 'white', cursor: 'pointer' }}
+                  >
+                    <option value="">All Divisions</option>
+                    {targetDivisions.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <select
+                    value={targetAreaFilter}
+                    onChange={e => setTargetAreaFilter(e.target.value)}
+                    style={{ padding: '10px 14px', minWidth: '180px', border: '2px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', background: 'white', cursor: 'pointer' }}
+                  >
+                    <option value="">All Areas</option>
+                    {targetAreas.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+
+                {/* Summary Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+                  {[
+                    { label: 'Total Achievement', value: totalAch.toLocaleString(), color: '#667eea', bg: '#f0f4ff', border: '#667eea' },
+                    { label: 'Base Target Ach %', value: totalBaseAchPct.toFixed(2) + '%', color: achPctColor(totalBaseAchPct), bg: '#fff', border: '#11998e' },
+                    { label: 'Slab-1 Ach %', value: totalSlab1AchPct.toFixed(2) + '%', color: achPctColor(totalSlab1AchPct), bg: '#fff', border: '#ff9800' },
+                    { label: 'Slab-2 Ach %', value: totalSlab2AchPct.toFixed(2) + '%', color: achPctColor(totalSlab2AchPct), bg: '#fff', border: '#dc3545' },
+                    { label: 'Total Plazas', value: enriched.length.toString(), color: '#333', bg: '#f8f9fa', border: '#ddd' },
+                    { label: 'Base Target Achieved', value: enriched.filter(r => (r.baseAchPct ?? 0) >= 100).length.toString(), color: '#28a745', bg: '#e8f5e9', border: '#28a745' },
+                  ].map(card => (
+                    <div key={card.label} style={{ padding: '15px', background: card.bg, borderRadius: '8px', border: `1px solid ${card.border}` }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '12px' }}>{card.label}</h4>
+                      <p style={{ fontSize: '22px', fontWeight: 'bold', color: card.color, margin: 0 }}>{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Table */}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '12px 10px', textAlign: 'left' }}>Division</th>
+                        {(targetViewMode === 'area' || targetViewMode === 'plaza') && <th style={{ padding: '12px 10px', textAlign: 'left' }}>Area</th>}
+                        {targetViewMode === 'plaza' && <th style={{ padding: '12px 10px', textAlign: 'left' }}>Plaza Name</th>}
+                        {targetViewMode !== 'plaza' && <th style={{ padding: '12px 10px', textAlign: 'center' }}>Plaza Count</th>}
+                        <th style={{ padding: '12px 10px', textAlign: 'right' }}>Achievement</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Target</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Ach %</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Target</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Ach %</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Target</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Ach %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(targetViewMode === 'division' ? divisionWiseData : targetViewMode === 'area' ? areaWiseData : enriched).map((row: any, idx: number) => (
+                        <tr key={idx} style={{ background: idx % 2 === 0 ? 'white' : '#f8f9fa', borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '10px', fontWeight: targetViewMode === 'division' ? 'bold' : 'normal' }}>{row.Division}</td>
+                          {(targetViewMode === 'area' || targetViewMode === 'plaza') && <td style={{ padding: '10px', fontWeight: targetViewMode === 'area' ? 'bold' : 'normal' }}>{row.Area}</td>}
+                          {targetViewMode === 'plaza' && <td style={{ padding: '10px', fontWeight: '500' }}>{row.PlazaName}</td>}
+                          {targetViewMode !== 'plaza' && <td style={{ padding: '10px', textAlign: 'center', color: '#666' }}>{row.plazaCount}</td>}
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: '500' }}>{row.ach !== null ? row.ach.toLocaleString() : <span style={{ color: '#999' }}>—</span>}</td>
+                          {/* Base */}
+                          <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === 'base' ? '#f0f4f8' : 'transparent' }}>{row.BaseTarget.toLocaleString()}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === 'base' ? '#f0f4f8' : 'transparent', color: achPctColor(row.baseAchPct) }}>
+                            {row.baseAchPct !== null ? row.baseAchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                          {/* Slab1 */}
+                          <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === 'slab1' ? '#fff8e1' : 'transparent' }}>{row.Slab1Target.toLocaleString()}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === 'slab1' ? '#fff8e1' : 'transparent', color: achPctColor(row.slab1AchPct) }}>
+                            {row.slab1AchPct !== null ? row.slab1AchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                          {/* Slab2 */}
+                          <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === 'slab2' ? '#ffebee' : 'transparent' }}>{row.Slab2Target.toLocaleString()}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === 'slab2' ? '#ffebee' : 'transparent', color: achPctColor(row.slab2AchPct) }}>
+                            {row.slab2AchPct !== null ? row.slab2AchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Total row */}
+                      <tr style={{ background: '#2c3e50', color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                        <td colSpan={targetViewMode === 'division' ? 2 : targetViewMode === 'area' ? 3 : 3} style={{ padding: '12px 10px' }}>TOTAL</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalAch.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalBase.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: totalBaseAchPct >= 100 ? '#4ade80' : '#f87171' }}>{totalBaseAchPct.toFixed(2)}%</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalSlab1.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: totalSlab1AchPct >= 100 ? '#4ade80' : '#f87171' }}>{totalSlab1AchPct.toFixed(2)}%</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalSlab2.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: totalSlab2AchPct >= 100 ? '#4ade80' : '#f87171' }}>{totalSlab2AchPct.toFixed(2)}%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Note if ACH data is missing */}
+                {currentYearData.length === 0 && (
+                  <div style={{ marginTop: '15px', padding: '12px 16px', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffc107', color: '#856404', fontSize: '13px' }}>
+                    ⚠️ <strong>Note:</strong> Achievement data is not loaded yet. Please upload the current year nine-criteria file in the "ACH Growth Comparison" section above to see achievement figures.
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      </div>
+      {/* ===== END CURRENT MONTH ACHIEVEMENT SECTION ===== */}
 
       {/* Hide old performance dashboard details
       {fullData.length > 0 && (
