@@ -25,8 +25,8 @@ interface PlazaDetail {
 }
 
 export const sendTangailReportToTelegram = async (report: TangailReport) => {
-  const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-  const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+  const botToken = "8886521882:AAG7Z1ndAg_l8rqwzMAb76ff35Sj4kWWtjk";
+  const chatId = "5831003572";
 
   console.log('Telegram Bot Token:', botToken ? 'Found' : 'Not found');
   console.log('Telegram Chat ID:', chatId ? 'Found' : 'Not found');
@@ -101,8 +101,8 @@ export const sendTangailReportToTelegram = async (report: TangailReport) => {
 };
 
 export const sendPlazaWiseReport = async (plazas: PlazaDetail[]) => {
-  const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-  const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+  const botToken = "8886521882:AAG7Z1ndAg_l8rqwzMAb76ff35Sj4kWWtjk";
+  const chatId = "5831003572";
 
   // Skip if credentials not configured
   if (!botToken || !chatId) {

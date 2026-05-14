@@ -1,14 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
-// Firebase config — values come from .env (VITE_ prefix for Vite projects)
+// Firebase config — hardcoded to bypass Vercel env variable issues
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey:            "AIzaSyBQqFnI951dU-NX1AU_rR-zjCy7DEEGNIM",
+  authDomain:        "my-all-projects-d3d6f.firebaseapp.com",
+  projectId:         "my-all-projects-d3d6f",
+  storageBucket:     "my-all-projects-d3d6f.firebasestorage.app",
+  messagingSenderId: "2183565403",
+  appId:             "1:2183565403:web:cced3de281e23b6293ef7e",
 };
 
 const app = initializeApp(firebaseConfig);
