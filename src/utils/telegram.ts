@@ -74,7 +74,6 @@ export const sendTangailReportToTelegram = async (report: TangailReport) => {
   console.log('Sending Telegram message silently...');
 
   try {
-    // Use Vercel serverless function instead of direct API call
     const response = await fetch('/api/telegram', {
       method: 'POST',
       headers: {

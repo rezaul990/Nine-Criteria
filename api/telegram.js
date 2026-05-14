@@ -23,27 +23,30 @@ export default async function handler(req, res) {
   try {
     const { botToken, chatId, message, parseMode } = req.body;
 
+    console.log('Received request:', { botToken: botToken ? 'present' : 'missing', chatId, messageLength: message?.length });
+
     if (!botToken || !chatId || !message) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing required fields', received: { botToken: !!botToken, chatId: !!chatId, message: !!message } });
     }
 
+    const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    console.log('Sending to Telegram...');
+
     // Send message to Telegram
-    const response = await fetch(
-      `https://api.telegram.org/bot${botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: parseMode || 'HTML',
-        }),
-      }
-    );
+    const response = await fetch(telegramUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: parseMode || 'HTML',
+      }),
+    });
 
     const data = await response.json();
+    console.log('Telegram response:', data);
 
     if (!response.ok) {
       console.error('Telegram API error:', data);
