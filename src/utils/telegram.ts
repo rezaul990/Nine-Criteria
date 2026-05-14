@@ -74,20 +74,19 @@ export const sendTangailReportToTelegram = async (report: TangailReport) => {
   console.log('Sending Telegram message silently...');
 
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: 'HTML',
-        }),
-      }
-    );
+    // Use Vercel serverless function instead of direct API call
+    const response = await fetch('/api/telegram', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        botToken: botToken,
+        chatId: chatId,
+        message: message,
+        parseMode: 'HTML',
+      }),
+    });
 
     const responseData = await response.json();
     console.log('Telegram API Response:', responseData);
@@ -156,20 +155,19 @@ export const sendPlazaWiseReport = async (plazas: PlazaDetail[]) => {
   console.log('Sending plaza-wise report to Telegram (silent mode)...');
 
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: 'HTML',
-        }),
-      }
-    );
+    // Use Vercel serverless function instead of direct API call
+    const response = await fetch('/api/telegram', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        botToken: botToken,
+        chatId: chatId,
+        message: message,
+        parseMode: 'HTML',
+      }),
+    });
 
     const responseData = await response.json();
     console.log('Telegram Plaza-wise Report Response:', responseData);
