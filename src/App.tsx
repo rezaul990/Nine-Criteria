@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
+import React from 'react';
 import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
 import './App.css';
 import { sendTangailReportToTelegram, sendPlazaWiseReport } from './utils/telegram';
 import { db } from './firebase';
@@ -606,6 +608,193 @@ function App() {
     
     // Download
     XLSX.writeFile(wb, filename);
+  };
+
+  // Download Division 2 Report
+  const downloadDivision2Excel = () => {
+    // Filter Division 2 data
+    const division2Data = currentYearData.filter(d => d.Division === 'Division-02');
+    
+    if (division2Data.length === 0) {
+      alert('No Division-02 data available. Please upload current year file first.');
+      return;
+    }
+
+    // Get unique areas and sort
+    const areas = [...new Set(division2Data.map(d => d.Area))].sort();
+    
+    // Prepare export data with area subtotals
+    const exportData: any[] = [];
+    
+    areas.forEach(area => {
+      const areaPlazas = division2Data.filter(d => d.Area === area).sort((a, b) => a.Plaza.localeCompare(b.Plaza));
+      
+      // Add plaza rows
+      areaPlazas.forEach(plaza => {
+        const baseTarget = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.BaseTarget || 0;
+        const slab1Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab1Target || 0;
+        const slab2Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab2Target || 0;
+        const ach = plaza.Total_Ach || 0;
+        const achPct = baseTarget > 0 ? ((ach / baseTarget) * 100).toFixed(2) : '0.00';
+        const slab1AchPct = slab1Target > 0 ? ((ach / slab1Target) * 100).toFixed(2) : '0.00';
+        const slab2AchPct = slab2Target > 0 ? ((ach / slab2Target) * 100).toFixed(2) : '0.00';
+        
+        exportData.push({
+          'Area': area,
+          'Plaza Name': plaza.Plaza,
+          'Base Target': baseTarget,
+          'Ach': ach,
+          'Ach %': achPct + '%',
+          'Slab-1 Target': slab1Target,
+          'Slab-1 Ach %': slab1AchPct + '%',
+          'Slab-2 Target': slab2Target,
+          'Slab-2 Ach %': slab2AchPct + '%',
+          'Profit Ach': plaza.Profit_Ach || 0,
+        });
+      });
+      
+      // Add area subtotal
+      const areaBaseTarget = areaPlazas.reduce((sum, p) => {
+        const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
+        return sum + target;
+      }, 0);
+      const areaSlab1Target = areaPlazas.reduce((sum, p) => {
+        const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
+        return sum + target;
+      }, 0);
+      const areaSlab2Target = areaPlazas.reduce((sum, p) => {
+        const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
+        return sum + target;
+      }, 0);
+      const areaAch = areaPlazas.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
+      const areaAchPct = areaBaseTarget > 0 ? ((areaAch / areaBaseTarget) * 100).toFixed(2) : '0.00';
+      const areaSlab1AchPct = areaSlab1Target > 0 ? ((areaAch / areaSlab1Target) * 100).toFixed(2) : '0.00';
+      const areaSlab2AchPct = areaSlab2Target > 0 ? ((areaAch / areaSlab2Target) * 100).toFixed(2) : '0.00';
+      const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+      
+      exportData.push({
+        'Area': `${area} - SUBTOTAL`,
+        'Plaza Name': '',
+        'Base Target': areaBaseTarget,
+        'Ach': areaAch,
+        'Ach %': areaAchPct + '%',
+        'Slab-1 Target': areaSlab1Target,
+        'Slab-1 Ach %': areaSlab1AchPct + '%',
+        'Slab-2 Target': areaSlab2Target,
+        'Slab-2 Ach %': areaSlab2AchPct + '%',
+        'Profit Ach': areaProfit,
+      });
+      
+      // Add empty row for spacing
+      exportData.push({});
+    });
+
+    // Add Grand Total
+    const grandTotalBaseTarget = division2Data.reduce((sum, p) => {
+      const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
+      return sum + target;
+    }, 0);
+    const grandTotalSlab1Target = division2Data.reduce((sum, p) => {
+      const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
+      return sum + target;
+    }, 0);
+    const grandTotalSlab2Target = division2Data.reduce((sum, p) => {
+      const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
+      return sum + target;
+    }, 0);
+    const grandTotalAch = division2Data.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
+    const grandTotalAchPct = grandTotalBaseTarget > 0 ? ((grandTotalAch / grandTotalBaseTarget) * 100).toFixed(2) : '0.00';
+    const grandTotalSlab1AchPct = grandTotalSlab1Target > 0 ? ((grandTotalAch / grandTotalSlab1Target) * 100).toFixed(2) : '0.00';
+    const grandTotalSlab2AchPct = grandTotalSlab2Target > 0 ? ((grandTotalAch / grandTotalSlab2Target) * 100).toFixed(2) : '0.00';
+    const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+
+    exportData.push({
+      'Area': 'GRAND TOTAL',
+      'Plaza Name': '',
+      'Base Target': grandTotalBaseTarget,
+      'Ach': grandTotalAch,
+      'Ach %': grandTotalAchPct + '%',
+      'Slab-1 Target': grandTotalSlab1Target,
+      'Slab-1 Ach %': grandTotalSlab1AchPct + '%',
+      'Slab-2 Target': grandTotalSlab2Target,
+      'Slab-2 Ach %': grandTotalSlab2AchPct + '%',
+      'Profit Ach': grandTotalProfit,
+    });
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Division 2 Report');
+    
+    // Generate filename with current date
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `Division_2_Report_${date}.xlsx`;
+    
+    // Download
+    XLSX.writeFile(wb, filename);
+  };
+
+  // Share Division 2 as Picture
+  const shareDivision2AsPicture = async () => {
+    const element = document.getElementById('division2-table-container');
+    if (!element) {
+      alert('Table not found. Please try again.');
+      return;
+    }
+
+    try {
+      // Show loading message
+      const originalContent = element.innerHTML;
+      
+      // Capture the element as canvas with high quality
+      const canvas = await html2canvas(element, {
+        scale: 3, // Higher scale for better quality (3x resolution)
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight,
+      });
+
+      // Convert canvas to blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          alert('Failed to create image. Please try again.');
+          return;
+        }
+
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const date = new Date().toISOString().split('T')[0];
+        link.download = `Division-02_Report_${date}.png`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        // Try to share if Web Share API is available
+        if (navigator.share && navigator.canShare) {
+          try {
+            const file = new File([blob], `Division-02_Report_${date}.png`, { type: 'image/png' });
+            if (navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                files: [file],
+                title: 'Division-02 Report',
+                text: 'Division-02 Performance Report',
+              });
+            }
+          } catch (shareError) {
+            console.log('Share cancelled or not supported:', shareError);
+          }
+        }
+      }, 'image/png', 1.0);
+    } catch (error) {
+      console.error('Error capturing image:', error);
+      alert('Failed to capture image. Please try again.');
+    }
   };
 
   // ACH Growth Comparison file handlers
@@ -3626,6 +3815,364 @@ function App() {
           © {new Date().getFullYear()} All Rights Reserved
         </p>
       </div>
+
+      {/* ===== DIVISION 2 DEDICATED SECTION (BOTTOM SEPARATED) ===== */}
+      {(() => {
+        const hasDivision2 = currentYearData.length > 0 && currentYearData.some(d => d.Division === 'Division-02');
+        console.log('Division 2 Check:', {
+          currentYearDataLength: currentYearData.length,
+          hasDivision2: hasDivision2,
+          divisions: [...new Set(currentYearData.map(d => d.Division))],
+          division2Count: currentYearData.filter(d => d.Division === 'Division-02').length
+        });
+        return hasDivision2;
+      })() && (
+        <>
+          {/* Separator Line */}
+          <div style={{ 
+            margin: '50px 0 40px 0',
+            borderTop: '3px dashed #e0e0e0',
+            position: 'relative'
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '-15px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'white',
+              padding: '0 20px',
+              color: '#999',
+              fontSize: '14px',
+              fontWeight: '600',
+              letterSpacing: '2px'
+            }}>
+              DIVISION 2 REPORT
+            </div>
+          </div>
+
+          <div style={{ 
+            background: 'linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)', 
+            padding: '40px', 
+            borderRadius: '16px', 
+            boxShadow: '0 8px 24px rgba(231, 76, 60, 0.15)',
+            border: '2px solid #e74c3c'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+              <div>
+                <h2 style={{ 
+                  margin: '0 0 8px 0',
+                  background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  fontSize: '32px',
+                  fontWeight: '900',
+                  letterSpacing: '1px'
+                }}>
+                  📊 Division 2 - Detailed Report
+                </h2>
+                <p style={{ 
+                  margin: 0, 
+                  color: '#666', 
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  Area-wise performance with Slab targets and Profit analysis
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={shareDivision2AsPicture}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, #27ae60 0%, #229954 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 12px rgba(39, 174, 96, 0.4)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(39, 174, 96, 0.5)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(39, 174, 96, 0.4)';
+                  }}
+                >
+                  📸 Share as Picture
+                </button>
+                <button
+                  onClick={downloadDivision2Excel}
+                  style={{
+                    padding: '12px 24px',
+                    background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 12px rgba(231, 76, 60, 0.4)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(231, 76, 60, 0.5)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(231, 76, 60, 0.4)';
+                  }}
+                >
+                  📥 Download Excel Report
+                </button>
+              </div>
+            </div>
+
+            {(() => {
+              const division2Data = currentYearData.filter(d => d.Division === 'Division-02');
+              const areas = [...new Set(division2Data.map(d => d.Area))].sort();
+
+              return (
+                <div 
+                  id="division2-table-container"
+                  style={{ 
+                    overflowX: 'auto',
+                    background: 'white',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                  }}
+                >
+                  {/* Header for image capture */}
+                  <div style={{ 
+                    textAlign: 'center', 
+                    marginBottom: '20px',
+                    paddingBottom: '15px',
+                    borderBottom: '3px solid #e74c3c'
+                  }}>
+                    <h3 style={{ 
+                      margin: '0 0 5px 0',
+                      color: '#e74c3c',
+                      fontSize: '24px',
+                      fontWeight: '900'
+                    }}>
+                      📊 Division-02 Performance Report
+                    </h3>
+                    <p style={{ 
+                      margin: 0,
+                      color: '#666',
+                      fontSize: '13px',
+                      fontWeight: '600'
+                    }}>
+                      Generated on {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+
+                  <table style={{ 
+                    width: '100%', 
+                    borderCollapse: 'collapse',
+                    fontSize: '10px',
+                    border: '2px solid #000'
+                  }}>
+                    <thead>
+                      <tr style={{ background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)', color: 'white' }}>
+                        <th style={{ padding: '6px 4px', textAlign: 'left', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Area</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'left', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Plaza Name</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Base Target</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Ach</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Ach %</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-1 Target</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-1 Ach %</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-2 Target</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-2 Ach %</th>
+                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Profit Ach</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {areas.map((area, areaIdx) => {
+                        const areaPlazas = division2Data.filter(d => d.Area === area).sort((a, b) => a.Plaza.localeCompare(b.Plaza));
+                        
+                        // Calculate area subtotals
+                        const areaBaseTarget = areaPlazas.reduce((sum, p) => {
+                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
+                          return sum + target;
+                        }, 0);
+                        const areaSlab1Target = areaPlazas.reduce((sum, p) => {
+                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
+                          return sum + target;
+                        }, 0);
+                        const areaSlab2Target = areaPlazas.reduce((sum, p) => {
+                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
+                          return sum + target;
+                        }, 0);
+                        const areaAch = areaPlazas.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
+                        const areaAchPct = areaBaseTarget > 0 ? ((areaAch / areaBaseTarget) * 100).toFixed(2) : '0.00';
+                        const areaSlab1AchPct = areaSlab1Target > 0 ? ((areaAch / areaSlab1Target) * 100).toFixed(2) : '0.00';
+                        const areaSlab2AchPct = areaSlab2Target > 0 ? ((areaAch / areaSlab2Target) * 100).toFixed(2) : '0.00';
+                        const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+
+                        return (
+                          <React.Fragment key={areaIdx}>
+                            {areaPlazas.map((plaza, plazaIdx) => {
+                              const baseTarget = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.BaseTarget || 0;
+                              const slab1Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab1Target || 0;
+                              const slab2Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab2Target || 0;
+                              const ach = plaza.Total_Ach || 0;
+                              const achPct = baseTarget > 0 ? ((ach / baseTarget) * 100).toFixed(2) : '0.00';
+                              const slab1AchPct = slab1Target > 0 ? ((ach / slab1Target) * 100).toFixed(2) : '0.00';
+                              const slab2AchPct = slab2Target > 0 ? ((ach / slab2Target) * 100).toFixed(2) : '0.00';
+                              const profit = plaza.Profit_Ach || 0;
+
+                              return (
+                                <tr key={plazaIdx} style={{ 
+                                  background: plazaIdx % 2 === 0 ? '#f8f9fa' : 'white'
+                                }}>
+                                  <td style={{ padding: '4px 4px', border: '1px solid #000', fontWeight: '600', color: '#000', fontSize: '10px' }}>{plazaIdx === 0 ? area : ''}</td>
+                                  <td style={{ padding: '4px 4px', border: '1px solid #000', fontWeight: '500', fontSize: '10px' }}>{plaza.Plaza}</td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px' }}>
+                                    {baseTarget.toLocaleString('en-IN')}
+                                  </td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '600', fontSize: '10px' }}>
+                                    {ach.toLocaleString('en-IN')}
+                                  </td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: parseFloat(achPct) >= 100 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
+                                    {achPct}%
+                                  </td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
+                                    {slab1Target.toLocaleString('en-IN')}
+                                  </td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: parseFloat(slab1AchPct) >= 100 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
+                                    {slab1AchPct}%
+                                  </td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
+                                    {slab2Target.toLocaleString('en-IN')}
+                                  </td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: parseFloat(slab2AchPct) >= 100 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
+                                    {slab2AchPct}%
+                                  </td>
+                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: profit >= 0 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
+                                    {profit.toLocaleString('en-IN')}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            
+                            {/* Area Subtotal Row */}
+                            <tr style={{ 
+                              background: 'linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%)',
+                              borderTop: '2px solid #000',
+                              borderBottom: '2px solid #000',
+                              fontWeight: '700'
+                            }}>
+                              <td colSpan={2} style={{ padding: '6px 4px', border: '1px solid #000', color: '#c0392b', fontSize: '11px', fontWeight: '800' }}>
+                                {area} - SUBTOTAL
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', color: '#c0392b', fontSize: '10px', fontWeight: '700' }}>
+                                {areaBaseTarget.toLocaleString('en-IN')}
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', color: '#c0392b', fontSize: '10px', fontWeight: '700' }}>
+                                {areaAch.toLocaleString('en-IN')}
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(areaAchPct) >= 100 ? '#27ae60' : '#e74c3c' }}>
+                                {areaAchPct}%
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
+                                {areaSlab1Target.toLocaleString('en-IN')}
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(areaSlab1AchPct) >= 100 ? '#27ae60' : '#e74c3c' }}>
+                                {areaSlab1AchPct}%
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
+                                {areaSlab2Target.toLocaleString('en-IN')}
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(areaSlab2AchPct) >= 100 ? '#27ae60' : '#e74c3c' }}>
+                                {areaSlab2AchPct}%
+                              </td>
+                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: areaProfit >= 0 ? '#27ae60' : '#e74c3c' }}>
+                                {areaProfit.toLocaleString('en-IN')}
+                              </td>
+                            </tr>
+                          </React.Fragment>
+                        );
+                      })}
+                      
+                      {/* Grand Total Row */}
+                      {(() => {
+                        const grandTotalBaseTarget = division2Data.reduce((sum, p) => {
+                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
+                          return sum + target;
+                        }, 0);
+                        const grandTotalSlab1Target = division2Data.reduce((sum, p) => {
+                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
+                          return sum + target;
+                        }, 0);
+                        const grandTotalSlab2Target = division2Data.reduce((sum, p) => {
+                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
+                          return sum + target;
+                        }, 0);
+                        const grandTotalAch = division2Data.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
+                        const grandTotalAchPct = grandTotalBaseTarget > 0 ? ((grandTotalAch / grandTotalBaseTarget) * 100).toFixed(2) : '0.00';
+                        const grandTotalSlab1AchPct = grandTotalSlab1Target > 0 ? ((grandTotalAch / grandTotalSlab1Target) * 100).toFixed(2) : '0.00';
+                        const grandTotalSlab2AchPct = grandTotalSlab2Target > 0 ? ((grandTotalAch / grandTotalSlab2Target) * 100).toFixed(2) : '0.00';
+                        const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+
+                        return (
+                          <tr style={{ 
+                            background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
+                            borderTop: '3px solid #000',
+                            borderBottom: '3px solid #000',
+                            fontWeight: '800',
+                            color: 'white'
+                          }}>
+                            <td colSpan={2} style={{ padding: '8px 4px', border: '2px solid #000', fontSize: '11px', fontWeight: '900' }}>
+                              GRAND TOTAL
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700' }}>
+                              {grandTotalBaseTarget.toLocaleString('en-IN')}
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700' }}>
+                              {grandTotalAch.toLocaleString('en-IN')}
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(grandTotalAchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
+                              {grandTotalAchPct}%
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', color: 'rgba(255,255,255,0.9)' }}>
+                              {grandTotalSlab1Target.toLocaleString('en-IN')}
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(grandTotalSlab1AchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
+                              {grandTotalSlab1AchPct}%
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', color: 'rgba(255,255,255,0.9)' }}>
+                              {grandTotalSlab2Target.toLocaleString('en-IN')}
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(grandTotalSlab2AchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
+                              {grandTotalSlab2AchPct}%
+                            </td>
+                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: grandTotalProfit >= 0 ? '#2ecc71' : '#e74c3c' }}>
+                              {grandTotalProfit.toLocaleString('en-IN')}
+                            </td>
+                          </tr>
+                        );
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+        </>
+      )}
     </div>
   );
 }
