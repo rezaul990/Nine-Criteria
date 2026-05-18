@@ -1318,6 +1318,24 @@ function App() {
 
   return (
     <div className="app">
+      {/* Debug Info Panel - Remove after testing */}
+      {currentYearData.length > 0 && (
+        <div style={{ 
+          background: '#f0f0f0', 
+          padding: '15px', 
+          marginBottom: '20px',
+          borderRadius: '8px',
+          fontSize: '12px',
+          fontFamily: 'monospace'
+        }}>
+          <strong>🔍 Debug Info:</strong><br/>
+          Total Plazas Loaded: {currentYearData.length}<br/>
+          Divisions Found: {[...new Set(currentYearData.map(d => d.Division))].join(', ')}<br/>
+          Division-02 Count: {currentYearData.filter(d => d.Division === 'Division-02').length}<br/>
+          Sample Division Values: {currentYearData.slice(0, 5).map(d => `"${d.Division}"`).join(', ')}
+        </div>
+      )}
+      
       {/* Top Credit */}
       <div style={{ 
         background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', 
@@ -3817,14 +3835,60 @@ function App() {
       </div>
 
       {/* ===== DIVISION 2 DEDICATED SECTION (BOTTOM SEPARATED) ===== */}
+      {isLoadingCurrent && (
+        <div style={{ 
+          margin: '50px 0',
+          padding: '30px',
+          background: '#e3f2fd',
+          border: '2px solid #2196f3',
+          borderRadius: '12px',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ color: '#1976d2', marginBottom: '15px' }}>⏳ Loading Division-02 Data...</h3>
+          <p style={{ color: '#1976d2' }}>
+            Please wait while we load the current year data from the database.
+          </p>
+        </div>
+      )}
+      
       {(() => {
         const hasDivision2 = currentYearData.length > 0 && currentYearData.some(d => d.Division === 'Division-02');
+        const division2Count = currentYearData.filter(d => d.Division === 'Division-02').length;
+        const allDivisions = [...new Set(currentYearData.map(d => d.Division))];
+        
         console.log('Division 2 Check:', {
           currentYearDataLength: currentYearData.length,
           hasDivision2: hasDivision2,
-          divisions: [...new Set(currentYearData.map(d => d.Division))],
-          division2Count: currentYearData.filter(d => d.Division === 'Division-02').length
+          divisions: allDivisions,
+          division2Count: division2Count,
+          isLoadingCurrent: isLoadingCurrent
         });
+        
+        // Show debug info if no Division-02 data
+        if (currentYearData.length > 0 && !hasDivision2) {
+          return (
+            <div style={{ 
+              margin: '50px 0',
+              padding: '30px',
+              background: '#fff3cd',
+              border: '2px solid #ffc107',
+              borderRadius: '12px',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#856404', marginBottom: '15px' }}>⚠️ Division-02 Data Not Found</h3>
+              <p style={{ color: '#856404', marginBottom: '10px' }}>
+                Current year data loaded: {currentYearData.length} plazas
+              </p>
+              <p style={{ color: '#856404', marginBottom: '10px' }}>
+                Available divisions: {allDivisions.join(', ') || 'None'}
+              </p>
+              <p style={{ color: '#856404', fontSize: '14px' }}>
+                Please ensure your uploaded file contains plazas with "Division-02" in the Division column.
+              </p>
+            </div>
+          );
+        }
+        
         return hasDivision2;
       })() && (
         <>
