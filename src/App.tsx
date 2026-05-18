@@ -115,6 +115,8 @@ function App() {
   const [isLoadingCurrent, setIsLoadingCurrent] = useState(false);
   const [saveCurrentStatus, setSaveCurrentStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
   const [currentUploadedAt, setCurrentUploadedAt] = useState('');
+  const [previousUploadedAt, setPreviousUploadedAt] = useState('');
+  const [targetUploadedAt, setTargetUploadedAt] = useState('');
   
   // Password protection state for target upload
   const [isTargetUploadUnlocked, setIsTargetUploadUnlocked] = useState(false);
@@ -139,6 +141,12 @@ function App() {
         if (!snapshot.empty) {
           const rows = snapshot.docs.map(d => d.data() as PlazaData);
           setPreviousYearData(rows);
+          try {
+            const metaSnap = await getDocs(collection(db, 'previous_month_meta'));
+            if (!metaSnap.empty) {
+              setPreviousUploadedAt(metaSnap.docs[0].data().updatedAt || '');
+            }
+          } catch (_) {}
           console.log('Loaded', rows.length, 'previous rows from Firestore');
         }
       } catch (err) {
@@ -187,11 +195,12 @@ function App() {
         if (!snapshot.empty) {
           const rows = snapshot.docs.map(d => d.data() as TargetRow);
           setMonthlyTargetData(rows);
-          // Try to get saved month label from meta doc
+          // Try to get saved month label and timestamp from meta doc
           try {
             const metaSnap = await getDocs(collection(db, 'monthly_targets_meta'));
             if (!metaSnap.empty) {
               setSavedMonthLabel(metaSnap.docs[0].data().monthLabel || '');
+              setTargetUploadedAt(metaSnap.docs[0].data().updatedAt || '');
             }
           } catch (_) {}
           console.log('Loaded', rows.length, 'rows from Firestore');
@@ -204,6 +213,20 @@ function App() {
     };
     loadSavedTarget();
   }, []);
+
+  // Helper function to format timestamp as DD-MM-YYYY (HH:MM AM/PM)
+  const formatTimestamp = (timestamp: string) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = date.getHours();
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    return `${day}-${month}-${year} (${String(displayHours).padStart(2, '0')}:${minutes} ${ampm})`;
+  };
 
   // Function to check and send Telegram report when both files are uploaded
   const checkAndSendTelegramReport = (currentData: PlazaData[], previousData: PlazaData[]) => {
@@ -848,12 +871,14 @@ function App() {
         await batch.commit();
       }
 
+      const timestamp = new Date().toLocaleString();
       // Save month label meta
       await setDoc(doc(db, 'monthly_targets_meta', 'current'), {
         monthLabel,
-        updatedAt: new Date().toISOString(),
+        updatedAt: timestamp,
         rowCount: rows.length,
       });
+      setTargetUploadedAt(timestamp);
 
       setSavedMonthLabel(monthLabel);
       setSaveStatus('saved');
@@ -947,6 +972,13 @@ function App() {
         });
         await batch.commit();
       }
+
+      const timestamp = new Date().toLocaleString();
+      await setDoc(doc(db, 'previous_month_meta', 'previous'), {
+        updatedAt: timestamp,
+        rowCount: rows.length,
+      });
+      setPreviousUploadedAt(timestamp);
 
       setSavePreviousStatus('saved');
       console.log('Saved', cleanRows.length, 'previous rows to Firestore');
@@ -1287,7 +1319,7 @@ function App() {
                   style={{
                     border: isDraggingCurrent ? '2px dashed #667eea' : '2px dashed #ddd',
                     background: isDraggingCurrent ? '#f0f4ff' : currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-                    padding: '30px',
+                    padding: '20px',
                     textAlign: 'center',
                     borderRadius: '8px',
                     cursor: 'pointer',
@@ -1296,62 +1328,68 @@ function App() {
                 >
                   {currentYearData.length > 0 ? (
                     <div>
-                      <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
-                      <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
+                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+                      <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>
                         File Loaded Successfully
                       </p>
-                      <p style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>
+                      <p style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
                         {currentYearData.length} plazas loaded
                       </p>
                       
-                      {currentUploadedAt && (
-                        <p style={{ fontSize: '12px', color: '#555', marginBottom: '12px' }}>
-                          📅 Uploaded: <strong>{currentUploadedAt}</strong>
+                      {/* Big Bold Timestamp */}
+                      <div style={{ 
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        padding: '12px 20px',
+                        borderRadius: '8px',
+                        marginBottom: '10px'
+                      }}>
+                        <p style={{ 
+                          fontSize: '16px', 
+                          color: 'white', 
+                          fontWeight: 'bold',
+                          margin: 0,
+                          letterSpacing: '0.5px'
+                        }}>
+                          📅 Data Updated: {formatTimestamp(currentUploadedAt)}
                         </p>
-                      )}
+                      </div>
 
-                      <div style={{ marginBottom: '12px' }}>
+                      <div style={{ marginBottom: '8px' }}>
                         {saveCurrentStatus === 'saving' && (
-                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#fff3cd', color: '#856404', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                            ☁️ Saving to database...
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#fff3cd', color: '#856404', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ☁️ Saving...
                           </span>
                         )}
                         {saveCurrentStatus === 'saved' && (
-                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d4edda', color: '#155724', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                            ✅ Saved to Firebase
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d4edda', color: '#155724', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ✅ Saved
                           </span>
                         )}
                         {saveCurrentStatus === 'error' && (
-                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#f8d7da', color: '#721c24', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                            ❌ Save failed
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#f8d7da', color: '#721c24', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ❌ Failed
                           </span>
                         )}
                         {saveCurrentStatus === 'idle' && (
-                          <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                            ☁️ Synced with Firebase
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d1ecf1', color: '#0c5460', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ☁️ Synced
                           </span>
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <label style={{
                           display: 'inline-block',
-                          padding: '8px 20px',
+                          padding: '6px 16px',
                           background: '#667eea',
                           color: 'white',
                           borderRadius: '6px',
                           cursor: 'pointer',
-                          fontSize: '13px'
+                          fontSize: '12px'
                         }}>
                           Re-upload
                           <input type="file" accept=".xls,.xlsx" onChange={handleCurrentYearUpload} style={{ display: 'none' }} />
                         </label>
-                        <button
-                          onClick={clearFirestoreCurrent}
-                          style={{ padding: '8px 20px', background: 'white', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
-                        >
-                          🗑️ Clear DB
-                        </button>
                       </div>
                     </div>
                   ) : (
@@ -1473,7 +1511,7 @@ function App() {
                       style={{
                         border: isDraggingPrevious ? '2px dashed #667eea' : '2px dashed #ddd',
                         background: isDraggingPrevious ? '#f0f4ff' : previousYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-                        padding: '30px',
+                        padding: '20px',
                         textAlign: 'center',
                         borderRadius: '8px',
                         cursor: 'pointer',
@@ -1482,56 +1520,68 @@ function App() {
                     >
                       {previousYearData.length > 0 ? (
                         <div>
-                          <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
-                          <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>
+                          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+                          <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>
                             File Loaded Successfully
                           </p>
-                          <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>
+                          <p style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
                             {previousYearData.length} plazas loaded
                           </p>
                           
-                          <div style={{ marginBottom: '12px' }}>
+                          {/* Big Bold Timestamp */}
+                          <div style={{ 
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            padding: '12px 20px',
+                            borderRadius: '8px',
+                            marginBottom: '10px'
+                          }}>
+                            <p style={{ 
+                              fontSize: '16px', 
+                              color: 'white', 
+                              fontWeight: 'bold',
+                              margin: 0,
+                              letterSpacing: '0.5px'
+                            }}>
+                              📅 Data Updated: {formatTimestamp(previousUploadedAt)}
+                            </p>
+                          </div>
+                          
+                          <div style={{ marginBottom: '8px' }}>
                             {savePreviousStatus === 'saving' && (
-                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#fff3cd', color: '#856404', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                                ☁️ Saving to database...
+                              <span style={{ display: 'inline-block', padding: '3px 10px', background: '#fff3cd', color: '#856404', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                                ☁️ Saving...
                               </span>
                             )}
                             {savePreviousStatus === 'saved' && (
-                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d4edda', color: '#155724', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                                ✅ Saved to Firebase
+                              <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d4edda', color: '#155724', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                                ✅ Saved
                               </span>
                             )}
                             {savePreviousStatus === 'error' && (
-                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#f8d7da', color: '#721c24', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                                ❌ Save failed
+                              <span style={{ display: 'inline-block', padding: '3px 10px', background: '#f8d7da', color: '#721c24', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                                ❌ Failed
                               </span>
                             )}
                             {savePreviousStatus === 'idle' && (
-                              <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                                ☁️ Synced with Firebase
+                              <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d1ecf1', color: '#0c5460', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                                ☁️ Synced
                               </span>
                             )}
                           </div>
 
-                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
                             <label style={{
                               display: 'inline-block',
-                              padding: '8px 20px',
+                              padding: '6px 16px',
                               background: '#667eea',
                               color: 'white',
                               borderRadius: '6px',
                               cursor: 'pointer',
-                              fontSize: '13px'
+                              fontSize: '12px'
                             }}>
                               Re-upload
                               <input type="file" accept=".xls,.xlsx" onChange={handlePreviousYearUpload} style={{ display: 'none' }} />
                             </label>
-                            <button
-                              onClick={clearFirestorePrevious}
-                              style={{ padding: '8px 20px', background: 'white', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
-                            >
-                              🗑️ Clear DB
-                            </button>
                           </div>
                         </div>
                       ) : (
@@ -2526,7 +2576,7 @@ function App() {
             style={{
               border: isDraggingTarget ? '2px dashed #11998e' : '2px dashed #ddd',
               background: isDraggingTarget ? '#e6fff8' : monthlyTargetData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-              padding: '30px',
+              padding: '20px',
               textAlign: 'center',
               borderRadius: '8px',
               cursor: 'pointer',
@@ -2536,58 +2586,70 @@ function App() {
           >
             {monthlyTargetData.length > 0 ? (
               <div>
-                <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
-                <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>Target File Loaded</p>
-                <p style={{ fontSize: '13px', color: '#666', marginBottom: '6px' }}>{monthlyTargetData.length} plazas loaded</p>
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+                <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>Target File Loaded</p>
+                <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>{monthlyTargetData.length} plazas loaded</p>
                 {savedMonthLabel && (
-                  <p style={{ fontSize: '12px', color: '#11998e', fontWeight: '600', marginBottom: '10px' }}>
+                  <p style={{ fontSize: '11px', color: '#11998e', fontWeight: '600', marginBottom: '10px' }}>
                     🗓️ {savedMonthLabel}
                   </p>
                 )}
 
+                {/* Big Bold Timestamp */}
+                <div style={{ 
+                  background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  marginBottom: '10px'
+                }}>
+                  <p style={{ 
+                    fontSize: '16px', 
+                    color: 'white', 
+                    fontWeight: 'bold',
+                    margin: 0,
+                    letterSpacing: '0.5px'
+                  }}>
+                    📅 Data Updated: {formatTimestamp(targetUploadedAt)}
+                  </p>
+                </div>
+
                 {/* Firebase sync status badge */}
-                <div style={{ marginBottom: '12px' }}>
+                <div style={{ marginBottom: '8px' }}>
                   {saveStatus === 'saving' && (
-                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#fff3cd', color: '#856404', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                      ☁️ Saving to database...
+                    <span style={{ display: 'inline-block', padding: '3px 10px', background: '#fff3cd', color: '#856404', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                      ☁️ Saving...
                     </span>
                   )}
                   {saveStatus === 'saved' && (
-                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d4edda', color: '#155724', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                      ✅ Saved to Firebase
+                    <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d4edda', color: '#155724', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                      ✅ Saved
                     </span>
                   )}
                   {saveStatus === 'error' && (
-                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#f8d7da', color: '#721c24', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                      ❌ Save failed — check Firebase config
+                    <span style={{ display: 'inline-block', padding: '3px 10px', background: '#f8d7da', color: '#721c24', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                      ❌ Failed
                     </span>
                   )}
                   {saveStatus === 'idle' && savedMonthLabel && (
-                    <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                      ☁️ Synced with Firebase
+                    <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d1ecf1', color: '#0c5460', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                      ☁️ Synced
                     </span>
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
                   <label style={{
                     display: 'inline-block',
-                    padding: '8px 20px',
+                    padding: '6px 16px',
                     background: '#11998e',
                     color: 'white',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '13px'
+                    fontSize: '12px'
                   }}>
                     Re-upload
                     <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) processTargetFile(f); }} style={{ display: 'none' }} />
                   </label>
-                  <button
-                    onClick={clearFirestoreTarget}
-                    style={{ padding: '8px 20px', background: 'white', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
-                  >
-                    🗑️ Clear DB
-                  </button>
                 </div>
               </div>
             ) : (
