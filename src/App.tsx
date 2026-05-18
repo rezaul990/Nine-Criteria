@@ -1318,24 +1318,6 @@ function App() {
 
   return (
     <div className="app">
-      {/* Debug Info Panel - Remove after testing */}
-      {currentYearData.length > 0 && (
-        <div style={{ 
-          background: '#f0f0f0', 
-          padding: '15px', 
-          marginBottom: '20px',
-          borderRadius: '8px',
-          fontSize: '12px',
-          fontFamily: 'monospace'
-        }}>
-          <strong>🔍 Debug Info:</strong><br/>
-          Total Plazas Loaded: {currentYearData.length}<br/>
-          Divisions Found: {[...new Set(currentYearData.map(d => d.Division))].join(', ')}<br/>
-          Division-02 Count: {currentYearData.filter(d => d.Division === 'Division-02').length}<br/>
-          Sample Division Values: {currentYearData.slice(0, 5).map(d => `"${d.Division}"`).join(', ')}
-        </div>
-      )}
-      
       {/* Top Credit */}
       <div style={{ 
         background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', 
@@ -3851,48 +3833,15 @@ function App() {
         </div>
       )}
       
-      {(() => {
+      {!isLoadingCurrent && (() => {
         const hasDivision2 = currentYearData.length > 0 && currentYearData.some(d => d.Division === 'Division-02');
-        const division2Count = currentYearData.filter(d => d.Division === 'Division-02').length;
-        const allDivisions = [...new Set(currentYearData.map(d => d.Division))];
         
-        console.log('Division 2 Check:', {
-          currentYearDataLength: currentYearData.length,
-          hasDivision2: hasDivision2,
-          divisions: allDivisions,
-          division2Count: division2Count,
-          isLoadingCurrent: isLoadingCurrent
-        });
+        // Return null if no data or no Division-02
+        if (!hasDivision2) return null;
         
-        // Show debug info if no Division-02 data
-        if (currentYearData.length > 0 && !hasDivision2) {
-          return (
-            <div style={{ 
-              margin: '50px 0',
-              padding: '30px',
-              background: '#fff3cd',
-              border: '2px solid #ffc107',
-              borderRadius: '12px',
-              textAlign: 'center'
-            }}>
-              <h3 style={{ color: '#856404', marginBottom: '15px' }}>⚠️ Division-02 Data Not Found</h3>
-              <p style={{ color: '#856404', marginBottom: '10px' }}>
-                Current year data loaded: {currentYearData.length} plazas
-              </p>
-              <p style={{ color: '#856404', marginBottom: '10px' }}>
-                Available divisions: {allDivisions.join(', ') || 'None'}
-              </p>
-              <p style={{ color: '#856404', fontSize: '14px' }}>
-                Please ensure your uploaded file contains plazas with "Division-02" in the Division column.
-              </p>
-            </div>
-          );
-        }
-        
-        return hasDivision2;
-      })() && (
-        <>
-          {/* Separator Line */}
+        // Render Division-02 section
+        return (
+          <>
           <div style={{ 
             margin: '50px 0 40px 0',
             borderTop: '3px dashed #e0e0e0',
@@ -4223,7 +4172,7 @@ function App() {
                             <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(grandTotalSlab2AchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
                               {grandTotalSlab2AchPct}%
                             </td>
-                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: grandTotalProfit >= 0 ? '#2ecc71' : '#e74c3c' }}>
+                            <td style={{ padding: '12px 8px', textAlign: 'right', border: '3px solid #000', fontSize: '16px', fontWeight: '900', color: grandTotalProfit >= 0 ? '#2ecc71' : '#ff6b6b', background: grandTotalProfit >= 0 ? '#27ae60' : '#c0392b' }}>
                               {grandTotalProfit.toLocaleString('en-IN')}
                             </td>
                           </tr>
@@ -4235,8 +4184,9 @@ function App() {
               );
             })()}
           </div>
-        </>
-      )}
+          </>
+        );
+      })()}
     </div>
   );
 }
