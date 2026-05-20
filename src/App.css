@@ -3,6 +3,59 @@
   background: linear-gradient(to bottom, #f4f6f9 0%, #e9ecef 100%);
   padding: 20px;
   min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+}
+
+/* Ensure all direct children sit above the watermark */
+.app > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== WATERMARK ===== */
+.watermark {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  gap: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.watermark-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(-30deg);
+  font-family: 'Georgia', serif;
+  font-size: 15px;
+  font-weight: 900;
+  color: rgba(93, 141, 64, 0.12);
+  letter-spacing: 1.5px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+/* Tablets and below */
+@media (max-width: 768px) {
+  .app {
+    padding: 10px;
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 480px) {
+  .app {
+    padding: 6px;
+  }
 }
 
 h1 {
@@ -129,4 +182,295 @@ tbody tr {
 tbody tr:hover {
   background: #f8f9ff;
   transform: scale(1.01);
+}
+
+
+/* ===== COMPREHENSIVE RESPONSIVE STYLES ===== */
+
+/* ---- Tablet (max-width: 768px) ---- */
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  select {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .cards {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    min-width: 100%;
+  }
+
+  .card p {
+    font-size: 22px;
+  }
+
+  th, td {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  th {
+    font-size: 10px;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Upload grid: 2 columns → 1 column */
+  .upload-grid {
+    grid-template-columns: 1fr !important;
+    gap: 15px !important;
+  }
+
+  /* Section padding reduction */
+  .section-padding {
+    padding: 15px !important;
+  }
+
+  /* Button groups stack */
+  .btn-group {
+    flex-direction: column !important;
+    gap: 8px !important;
+    width: 100%;
+  }
+
+  .btn-group button,
+  .btn-group a {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Header flex → stack */
+  .section-header {
+    flex-direction: column !important;
+    gap: 15px !important;
+    align-items: flex-start !important;
+  }
+
+  /* Filter row stack */
+  .filter-row {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .filter-row select {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Division 2 section */
+  .division2-section {
+    padding: 15px !important;
+  }
+
+  .division2-section h2 {
+    font-size: 22px !important;
+  }
+
+  /* Table container scroll */
+  .table-scroll {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -10px;
+    padding: 0 10px;
+  }
+
+  /* Summary cards grid */
+  .summary-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  /* Credit banner */
+  .credit-banner {
+    padding: 12px 15px !important;
+  }
+
+  .credit-banner p {
+    font-size: 14px !important;
+  }
+
+  .credit-banner span {
+    font-size: 16px !important;
+  }
+
+  /* Download banner */
+  .download-banner {
+    padding: 15px !important;
+  }
+
+  .download-banner p {
+    font-size: 14px !important;
+  }
+
+  .download-banner a {
+    padding: 10px 25px !important;
+    font-size: 14px !important;
+  }
+
+  /* Comparison section header */
+  .comparison-header h2 {
+    font-size: 18px !important;
+  }
+
+  /* Degrowth cards */
+  .degrowth-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---- Mobile (max-width: 480px) ---- */
+@media (max-width: 480px) {
+  .filters {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  select {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .card {
+    padding: 15px;
+  }
+
+  .card h3 {
+    font-size: 11px;
+  }
+
+  .card p {
+    font-size: 20px;
+    margin-top: 6px;
+  }
+
+  th, td {
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+
+  th {
+    font-size: 9px;
+  }
+
+  .upload-box {
+    padding: 10px;
+  }
+
+  /* Upload grid */
+  .upload-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Section padding */
+  .section-padding {
+    padding: 10px !important;
+  }
+
+  /* Division 2 section */
+  .division2-section {
+    padding: 10px !important;
+    border-radius: 8px !important;
+  }
+
+  .division2-section h2 {
+    font-size: 18px !important;
+    letter-spacing: 0 !important;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Buttons full width */
+  .btn-group {
+    flex-direction: column !important;
+  }
+
+  .btn-group button {
+    width: 100% !important;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+  }
+
+  /* Table font sizes */
+  .table-scroll table {
+    font-size: 9px !important;
+  }
+
+  .table-scroll th,
+  .table-scroll td {
+    padding: 5px 3px !important;
+    font-size: 9px !important;
+  }
+
+  /* Credit banner */
+  .credit-banner {
+    padding: 10px !important;
+  }
+
+  .credit-banner p {
+    font-size: 12px !important;
+  }
+
+  .credit-banner span {
+    font-size: 14px !important;
+  }
+
+  /* Download banner */
+  .download-banner {
+    padding: 12px 10px !important;
+    border-radius: 8px !important;
+  }
+
+  .download-banner p {
+    font-size: 12px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .download-banner a {
+    padding: 8px 20px !important;
+    font-size: 13px !important;
+  }
+
+  /* Comparison header */
+  .comparison-header {
+    padding: 12px 15px !important;
+  }
+
+  .comparison-header h2 {
+    font-size: 16px !important;
+  }
+
+  /* Filter row */
+  .filter-row {
+    padding: 10px !important;
+  }
+
+  /* Timestamp display */
+  .timestamp-display {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* Degrowth cards */
+  .degrowth-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
 }

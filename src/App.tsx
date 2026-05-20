@@ -1318,8 +1318,15 @@ function App() {
 
   return (
     <div className="app">
+      {/* Watermark */}
+      <div className="watermark" aria-hidden="true">
+        {Array.from({ length: 32 }).map((_, i) => (
+          <span key={i} className="watermark-item">Rezaul Karim - BLCian</span>
+        ))}
+      </div>
+
       {/* Top Credit */}
-      <div style={{ 
+      <div className="credit-banner" style={{ 
         background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', 
         padding: '15px 20px', 
         marginBottom: '20px',
@@ -1339,7 +1346,7 @@ function App() {
       </div>
 
       {/* Download Instruction Banner */}
-      <div style={{ 
+      <div className="download-banner" style={{ 
         background: 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)', 
         padding: '20px 30px', 
         marginBottom: '20px',
@@ -1469,7 +1476,7 @@ function App() {
         boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
         overflow: 'hidden'
       }}>
-        <div style={{ 
+        <div className="comparison-header" style={{ 
           padding: '20px 30px',
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         }}>
@@ -1487,14 +1494,14 @@ function App() {
           </div>
         </div>
 
-        <div style={{ padding: '30px' }}>
+        <div className="section-padding" style={{ padding: '30px' }}>
             {isLoadingPrevious && (
               <div style={{ textAlign: 'center', padding: '10px', color: '#667eea', fontSize: '14px', marginBottom: '15px' }}>
                 <span style={{ display: 'inline-block', marginRight: '8px', animation: 'spin 1s linear infinite' }}>⏳</span>
                 Loading previous month data from database...
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div className="upload-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               
               {/* Current Year Upload */}
               <div>
@@ -1526,7 +1533,7 @@ function App() {
                       </p>
                       
                       {/* Big Bold Timestamp */}
-                      <div style={{ 
+                      <div className="timestamp-display" style={{ 
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         padding: '12px 20px',
                         borderRadius: '8px',
@@ -1845,7 +1852,7 @@ function App() {
             {isComparisonSectionOpen && (
               <div style={{ padding: '20px' }}>
                 {/* Comparison Filters */}
-            <div style={{ 
+            <div className="filter-row" style={{ 
               display: 'flex', 
               gap: '15px', 
               marginBottom: '20px', 
@@ -1919,7 +1926,7 @@ function App() {
             </div>
 
             {/* Summary Cards */}
-            <div style={{ 
+            <div className="summary-grid" style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
               gap: '15px',
@@ -2047,7 +2054,7 @@ function App() {
               {isDegrowthSectionOpen && (
                 <div style={{ padding: '20px' }}>
                   {/* Summary Cards */}
-                  <div style={{ 
+                  <div className="summary-grid" style={{ 
                     display: 'grid', 
                     gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
                     gap: '15px',
@@ -2200,7 +2207,7 @@ function App() {
                   {/* Details by Division */}
                   <div style={{ marginBottom: '20px' }}>
                     <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Growth/Degrowth by Division</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                    <div className="degrowth-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                       {(() => {
                         const divisionSummary = filteredComparisonData.reduce((acc, current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
@@ -2332,7 +2339,7 @@ function App() {
                   {/* Details by Area */}
                   <div>
                     <h4 style={{ marginBottom: '10px', color: '#721c24' }}>Growth/Degrowth by Area</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                    <div className="degrowth-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                       {(() => {
                         const areaSummary = filteredComparisonData.reduce((acc, current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
@@ -2526,7 +2533,7 @@ function App() {
               </button>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-scroll" style={{ overflowX: 'auto' }}>
               <table>
                 <thead>
                   <tr>
@@ -3017,7 +3024,7 @@ function App() {
                 </div>
 
                 {/* Filters */}
-                <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
+                <div className="filter-row" style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
                   <select
                     value={targetDivisionFilter}
                     onChange={e => { setTargetDivisionFilter(e.target.value); setTargetAreaFilter(''); }}
@@ -3037,7 +3044,7 @@ function App() {
                 </div>
 
                 {/* Summary Cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+                <div className="summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
                   {[
                     { label: 'Total Achievement', value: totalAch.toLocaleString(), color: '#667eea', bg: '#f0f4ff', border: '#667eea' },
                     { label: 'Base Target Ach %', value: totalBaseAchPct.toFixed(2) + '%', color: achPctColor(totalBaseAchPct), bg: '#fff', border: '#11998e' },
@@ -3054,7 +3061,7 @@ function App() {
                 </div>
 
                 {/* Table */}
-                <div style={{ overflowX: 'auto' }}>
+                <div className="table-scroll" style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr>
@@ -3510,7 +3517,7 @@ function App() {
                 📥 Download Excel
               </button>
             </div>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-scroll" style={{ overflowX: 'auto' }}>
               <table>
                 <thead>
                   <tr>
@@ -3680,7 +3687,7 @@ function App() {
               <>
                 <div style={{ marginBottom: '20px' }}>
                   <h3 style={{ marginBottom: '10px' }}>Loss Summary by Division</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+                  <div className="degrowth-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '20px' }}>
                     {(() => {
                       const lossPlazas = fullData.filter((d) => (d.Profit_Ach || 0) < 0);
                       const divisionSummary = lossPlazas.reduce((acc, d) => {
@@ -3715,7 +3722,7 @@ function App() {
 
                 <div style={{ marginBottom: '20px' }}>
                   <h3 style={{ marginBottom: '10px' }}>Loss Summary by Area</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+                  <div className="degrowth-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '20px' }}>
                     {(() => {
                       const lossPlazas = fullData.filter((d) => (d.Profit_Ach || 0) < 0);
                       const areaSummary = lossPlazas.reduce((acc, d) => {
@@ -3751,7 +3758,7 @@ function App() {
             )}
 
             <h3 style={{ marginBottom: '10px' }}>Detailed Loss Plaza List</h3>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="table-scroll" style={{ overflowX: 'auto' }}>
               <table>
                 <thead>
                   <tr>
@@ -3789,7 +3796,7 @@ function App() {
       End Hide old performance dashboard details */}
 
       {/* Bottom Credit */}
-      <div style={{ 
+      <div className="credit-banner" style={{ 
         background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', 
         padding: '20px 20px', 
         marginTop: '40px',
@@ -3863,14 +3870,14 @@ function App() {
             </div>
           </div>
 
-          <div style={{ 
+          <div className="division2-section" style={{ 
             background: 'linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)', 
             padding: '40px', 
             borderRadius: '16px', 
             boxShadow: '0 8px 24px rgba(231, 76, 60, 0.15)',
             border: '2px solid #e74c3c'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
               <div>
                 <h2 style={{ 
                   margin: '0 0 8px 0',
@@ -3892,7 +3899,7 @@ function App() {
                   Area-wise performance with Slab targets and Profit analysis
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div className="btn-group" style={{ display: 'flex', gap: '12px' }}>
                 <button
                   onClick={shareDivision2AsPicture}
                   style={{
@@ -3959,6 +3966,7 @@ function App() {
               return (
                 <div 
                   id="division2-table-container"
+                  className="table-scroll"
                   style={{ 
                     overflowX: 'auto',
                     background: 'white',
