@@ -129,6 +129,7 @@ function App() {
   const [isPreviousUploadUnlocked, setIsPreviousUploadUnlocked] = useState(false);
   const [previousPasswordInput, setPreviousPasswordInput] = useState('');
   const [showPreviousUploadOptions, setShowPreviousUploadOptions] = useState(false);
+  const [showPreviousYearSection, setShowPreviousYearSection] = useState(false);
   const [isLoadingTarget, setIsLoadingTarget] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
   const [savedMonthLabel, setSavedMonthLabel] = useState('');
@@ -1501,13 +1502,35 @@ function App() {
                 Loading previous month data from database...
               </div>
             )}
-            <div className="upload-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div className="upload-grid" style={{ display: 'grid', gridTemplateColumns: showPreviousYearSection ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '20px' }}>
               
               {/* Current Year Upload */}
               <div>
-                <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#333' }}>
-                  Current Year File
-                </h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h3 style={{ fontSize: '16px', margin: 0, color: '#333' }}>
+                    Current Year File
+                  </h3>
+                  <button
+                    onClick={() => setShowPreviousYearSection(!showPreviousYearSection)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 14px',
+                      background: showPreviousYearSection ? '#f8d7da' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: showPreviousYearSection ? '#721c24' : 'white',
+                      border: 'none',
+                      borderRadius: '20px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {showPreviousYearSection ? '✕ Hide Previous Year' : '📂 Show Previous Year'}
+                  </button>
+                </div>
                 <div
                   onDragOver={(e) => { e.preventDefault(); setIsDraggingCurrent(true); }}
                   onDragLeave={(e) => { e.preventDefault(); setIsDraggingCurrent(false); }}
@@ -1621,6 +1644,7 @@ function App() {
               </div>
 
               {/* Previous Year Upload */}
+              {showPreviousYearSection && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <h3 style={{ fontSize: '16px', margin: 0, color: '#333' }}>Previous Year File</h3>
@@ -1813,6 +1837,7 @@ function App() {
                   )
                 )}
               </div>
+              )} {/* end showPreviousYearSection */}
 
             </div>
 
