@@ -2920,7 +2920,8 @@ function App() {
             );
 
             // Match achievement from currentYearData
-            const enriched = filteredTarget.map(t => {
+            // Build enriched from filteredTarget first
+            const enrichedFromTarget = filteredTarget.map(t => {
               const achRow = currentYearData.find(c =>
                 c.Plaza?.toString().trim().toLowerCase() === t.PlazaName?.toString().trim().toLowerCase()
               );
@@ -2938,6 +2939,44 @@ function App() {
               const slab2AchPct = (ach !== null && t.Slab2Target > 0) ? (ach / t.Slab2Target * 100) : null;
               return { ...t, ach, profitAch, prevAch, growthPct, baseAchPct, slab1AchPct, slab2AchPct };
             });
+
+            // Also include plazas from currentYearData that have NO matching target row
+            // (they exist in current year file but were not in the target upload)
+            const targetPlazaNames = new Set(filteredTarget.map(t => t.PlazaName?.toString().trim().toLowerCase()));
+            const currentYearFiltered = currentYearData.filter(c => {
+              const matchesDivision = !targetDivisionFilter || c.Division === targetDivisionFilter;
+              const matchesArea = !targetAreaFilter || c.Area === targetAreaFilter;
+              return matchesDivision && matchesArea;
+            });
+            const unmatchedCurrent = currentYearFiltered.filter(c =>
+              !targetPlazaNames.has(c.Plaza?.toString().trim().toLowerCase())
+            ).map(c => {
+              const prevRow = previousYearData.find(p =>
+                p.Plaza?.toString().trim().toLowerCase() === c.Plaza?.toString().trim().toLowerCase()
+              );
+              const ach = c.Total_Ach || 0;
+              const profitAch = c.Profit_Ach || 0;
+              const prevAch = prevRow ? (prevRow.Total_Ach || 0) : null;
+              const growthPct = (prevAch !== null && prevAch > 0) ? ((ach - prevAch) / prevAch * 100) : null;
+              return {
+                Division: c.Division || '',
+                Area: c.Area || '',
+                PlazaName: c.Plaza || '',
+                BaseTarget: 0,
+                Slab1Target: 0,
+                Slab2Target: 0,
+                ach,
+                profitAch,
+                prevAch,
+                growthPct,
+                baseAchPct: null,
+                slab1AchPct: null,
+                slab2AchPct: null,
+              };
+            });
+
+            // Merge: target-matched plazas + unmatched current year plazas
+            const enriched = [...enrichedFromTarget, ...unmatchedCurrent];
 
             // Compute aggregated data
             const divisionWiseData = Object.values(enriched.reduce((acc, row) => {
