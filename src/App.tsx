@@ -109,6 +109,9 @@ function App() {
   const [activeTargetSlab, setActiveTargetSlab] = useState<'base'|'slab1'|'slab2'>('base');
   // View mode for target table
   const [targetViewMode, setTargetViewMode] = useState<'division'|'area'|'plaza'>('area');
+  // Sorting for target table
+  const [targetSortColumn, setTargetSortColumn] = useState<string>('');
+  const [targetSortDir, setTargetSortDir] = useState<'asc'|'desc'>('desc');
 
   // Firebase sync state
   const [isSavingTarget, setIsSavingTarget] = useState(false);
@@ -3037,6 +3040,53 @@ function App() {
               return '#dc3545';
             };
 
+            // ----- Sorting logic -----
+            const baseRows = targetViewMode === 'division' ? divisionWiseData : targetViewMode === 'area' ? areaWiseData : enriched;
+            const sortedRows = (() => {
+              if (!targetSortColumn) return baseRows;
+              const dir = targetSortDir === 'asc' ? 1 : -1;
+              const getVal = (row: any) => {
+                switch (targetSortColumn) {
+                  case 'Division': return (row.Division || '').toString().toLowerCase();
+                  case 'Area': return (row.Area || '').toString().toLowerCase();
+                  case 'PlazaName': return (row.PlazaName || '').toString().toLowerCase();
+                  case 'plazaCount': return row.plazaCount ?? 0;
+                  case 'ach': return row.ach ?? -Infinity;
+                  case 'profitAch': return row.profitAch ?? -Infinity;
+                  case 'growthPct': return row.growthPct ?? -Infinity;
+                  case 'BaseTarget': return row.BaseTarget ?? 0;
+                  case 'baseAchPct': return row.baseAchPct ?? -Infinity;
+                  case 'Slab1Target': return row.Slab1Target ?? 0;
+                  case 'slab1AchPct': return row.slab1AchPct ?? -Infinity;
+                  case 'Slab2Target': return row.Slab2Target ?? 0;
+                  case 'slab2AchPct': return row.slab2AchPct ?? -Infinity;
+                  default: return 0;
+                }
+              };
+              return [...baseRows].sort((a, b) => {
+                const va = getVal(a);
+                const vb = getVal(b);
+                if (typeof va === 'string' && typeof vb === 'string') {
+                  return va.localeCompare(vb) * dir;
+                }
+                return ((va as number) - (vb as number)) * dir;
+              });
+            })();
+
+            const handleSort = (col: string) => {
+              if (targetSortColumn === col) {
+                setTargetSortDir(targetSortDir === 'asc' ? 'desc' : 'asc');
+              } else {
+                setTargetSortColumn(col);
+                setTargetSortDir('desc');
+              }
+            };
+
+            const sortArrow = (col: string) => {
+              if (targetSortColumn !== col) return <span style={{ opacity: 0.35, fontSize: '10px' }}> ⇅</span>;
+              return <span style={{ fontSize: '10px' }}>{targetSortDir === 'asc' ? ' ▲' : ' ▼'}</span>;
+            };
+
             return (
               <>
                 {/* Slab Toggle */}
@@ -3129,23 +3179,23 @@ function App() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                       <tr>
-                        <th style={{ padding: '12px 10px', textAlign: 'left' }}>Division</th>
-                        {(targetViewMode === 'area' || targetViewMode === 'plaza') && <th style={{ padding: '12px 10px', textAlign: 'left' }}>Area</th>}
-                        {targetViewMode === 'plaza' && <th style={{ padding: '12px 10px', textAlign: 'left' }}>Plaza Name</th>}
-                        {targetViewMode !== 'plaza' && <th style={{ padding: '12px 10px', textAlign: 'center' }}>Plaza Count</th>}
-                        <th style={{ padding: '12px 10px', textAlign: 'right' }}>Achievement</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: 'linear-gradient(135deg, #1a9641 0%, #52b788 100%)', color: 'white' }}>Profit Ach</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', color: 'white' }}>Growth %</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Target</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Ach %</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Target</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Ach %</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Target</th>
-                        <th style={{ padding: '12px 10px', textAlign: 'right', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Ach %</th>
+                        <th onClick={() => handleSort('Division')} style={{ padding: '12px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}>Division{sortArrow('Division')}</th>
+                        {(targetViewMode === 'area' || targetViewMode === 'plaza') && <th onClick={() => handleSort('Area')} style={{ padding: '12px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}>Area{sortArrow('Area')}</th>}
+                        {targetViewMode === 'plaza' && <th onClick={() => handleSort('PlazaName')} style={{ padding: '12px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}>Plaza Name{sortArrow('PlazaName')}</th>}
+                        {targetViewMode !== 'plaza' && <th onClick={() => handleSort('plazaCount')} style={{ padding: '12px 10px', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>Plaza Count{sortArrow('plazaCount')}</th>}
+                        <th onClick={() => handleSort('ach')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Achievement{sortArrow('ach')}</th>
+                        <th onClick={() => handleSort('profitAch')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: 'linear-gradient(135deg, #1a9641 0%, #52b788 100%)', color: 'white' }}>Profit Ach{sortArrow('profitAch')}</th>
+                        <th onClick={() => handleSort('growthPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', color: 'white' }}>Growth %{sortArrow('growthPct')}</th>
+                        <th onClick={() => handleSort('BaseTarget')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Target{sortArrow('BaseTarget')}</th>
+                        <th onClick={() => handleSort('baseAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Ach %{sortArrow('baseAchPct')}</th>
+                        <th onClick={() => handleSort('Slab1Target')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Target{sortArrow('Slab1Target')}</th>
+                        <th onClick={() => handleSort('slab1AchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Ach %{sortArrow('slab1AchPct')}</th>
+                        <th onClick={() => handleSort('Slab2Target')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Target{sortArrow('Slab2Target')}</th>
+                        <th onClick={() => handleSort('slab2AchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Ach %{sortArrow('slab2AchPct')}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(targetViewMode === 'division' ? divisionWiseData : targetViewMode === 'area' ? areaWiseData : enriched).map((row: any, idx: number) => (
+                      {sortedRows.map((row: any, idx: number) => (
                         <tr key={idx} style={{ background: idx % 2 === 0 ? 'white' : '#f8f9fa', borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '10px', fontWeight: targetViewMode === 'division' ? 'bold' : 'normal' }}>{row.Division}</td>
                           {(targetViewMode === 'area' || targetViewMode === 'plaza') && <td style={{ padding: '10px', fontWeight: targetViewMode === 'area' ? 'bold' : 'normal' }}>{row.Area}</td>}
