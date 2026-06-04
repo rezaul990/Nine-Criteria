@@ -26,46 +26,105 @@ interface PlazaData {
   Achv_Pct: number;
   Profit_Achv: number;
   allColumns?: any[];
-  // Target, Achievement, and Achievement % fields
+  // Total Sales
   Total_Target?: number;
   Total_Ach?: number;
   Total_Ach_Pct?: number;
-  
+  // Retail Sales
   Retail_Sales_Target?: number;
   Retail_Sales_Ach?: number;
   Retail_Sales_Ach_Pct?: number;
-  
+  Retail_Marks?: number;
+  // Hire Sales
   Hire_Sales_Target?: number;
   Hire_Sales_Ach?: number;
   Hire_Sales_Ach_Pct?: number;
-  
-  Hire_DP_Col_Target?: number;
-  Hire_DP_Col_Ach?: number;
-  Hire_DP_Col_Ach_Pct?: number;
-  
-  Hire_LPR_Col_Target?: number;
-  Hire_LPR_Col_Ach?: number;
-  Hire_LPR_Col_Ach_Pct?: number;
-  
-  Col_Exec_Target?: number;
-  Col_Exec_Ach?: number;
-  Col_Exec_Ach_Pct?: number;
-  
-  Col_Self_Target?: number;
-  Col_Self_Ach?: number;
-  Col_Self_Ach_Pct?: number;
-  
-  Dealer_Corp_Sales_Target?: number;
-  Dealer_Corp_Sales_Ach?: number;
-  Dealer_Corp_Sales_Ach_Pct?: number;
-  
-  Dealer_Corp_Col_Target?: number;
-  Dealer_Corp_Col_Ach?: number;
-  Dealer_Corp_Col_Ach_Pct?: number;
-  
-  Profit_Target?: number;
-  Profit_Ach?: number;
-  Profit_Ach_Pct?: number;
+  Hire_Sales_Marks?: number;
+  // Hire DP Collection
+  Hire_DP_Target?: number;
+  Hire_DP_Ach?: number;
+  Hire_DP_Ach_Pct?: number;
+  Hire_DP_Marks?: number;
+  // Hire LPR Collection
+  Hire_LPR_Target?: number;
+  Hire_LPR_Ach?: number;
+  Hire_LPR_Ach_Pct?: number;
+  Hire_LPR_Marks?: number;
+  // Hire Collection Account Cash
+  Hire_Cash_Acc_Target?: number;
+  Hire_Cash_Acc_Ach?: number;
+  Hire_Cash_Acc_Ach_Pct?: number;
+  Hire_Cash_Acc_Marks?: number;
+  // Hire Collection Account Digital
+  Hire_Digital_Acc_Target?: number;
+  Hire_Digital_Acc_Ach?: number;
+  Hire_Digital_Acc_Ach_Pct?: number;
+  Hire_Digital_Acc_Marks?: number;
+  // Dealer Sales
+  Dealer_Sales_Target?: number;
+  Dealer_Sales_Ach?: number;
+  Dealer_Sales_Ach_Pct?: number;
+  Dealer_Sales_Marks?: number;
+  // Corporate Sales
+  Corporate_Sales_Target?: number;
+  Corporate_Sales_Ach?: number;
+  Corporate_Sales_Ach_Pct?: number;
+  Corporate_Sales_Marks?: number;
+  // Dealer Collection
+  Dealer_Collection_Target?: number;
+  Dealer_Collection_Ach?: number;
+  Dealer_Collection_Ach_Pct?: number;
+  Dealer_Collection_Marks?: number;
+  // Corporate Collection
+  Corporate_Collection_Target?: number;
+  Corporate_Collection_Ach?: number;
+  Corporate_Collection_Ach_Pct?: number;
+  Corporate_Collection_Marks?: number;
+  // Sales Growth Cumulative
+  Sales_Growth_Target?: number;
+  Sales_Growth_Ach?: number;
+  Sales_Growth_Status?: string;
+  Sales_Growth_Marks?: number;
+  // Net Profit
+  Net_Profit_Target?: number;
+  Net_Profit_Ach?: number;
+  Net_Profit_Ach_Pct?: number;
+  Net_Profit_Marks?: number;
+  // Fridge Sales
+  Fridge_Sales_Target?: number;
+  Fridge_Sales_Ach?: number;
+  Fridge_Sales_Ach_Pct?: number;
+  Fridge_Sales_Marks?: number;
+  // TV Sales
+  TV_Sales_Target?: number;
+  TV_Sales_Ach?: number;
+  TV_Sales_Ach_Pct?: number;
+  TV_Sales_Marks?: number;
+  // AC Sales
+  AC_Sales_Target?: number;
+  AC_Sales_Ach?: number;
+  AC_Sales_Ach_Pct?: number;
+  AC_Sales_Marks?: number;
+  // HAP Sales
+  HAP_Sales_Target?: number;
+  HAP_Sales_Ach?: number;
+  HAP_Sales_Ach_Pct?: number;
+  HAP_Sales_Marks?: number;
+  // EAP Sales
+  EAP_Sales_Target?: number;
+  EAP_Sales_Ach?: number;
+  EAP_Sales_Ach_Pct?: number;
+  EAP_Sales_Marks?: number;
+  // Mobile Sales
+  Mobile_Sales_Target?: number;
+  Mobile_Sales_Ach?: number;
+  Mobile_Sales_Ach_Pct?: number;
+  Mobile_Sales_Marks?: number;
+  // IT Sales
+  IT_Sales_Target?: number;
+  IT_Sales_Ach?: number;
+  IT_Sales_Ach_Pct?: number;
+  IT_Sales_Marks?: number;
 }
 
 function App() {
@@ -113,6 +172,39 @@ function App() {
   const [targetSortColumn, setTargetSortColumn] = useState<string>('');
   const [targetSortDir, setTargetSortDir] = useState<'asc'|'desc'>('desc');
 
+  // Ranking Analysis states
+  const [isRankingSectionOpen, setIsRankingSectionOpen] = useState(false);
+  const [rankingViewMode, setRankingViewMode] = useState<'division'|'area'|'plaza'>('area');
+  const [rankingDivisionFilter, setRankingDivisionFilter] = useState('');
+  const [rankingAreaFilter, setRankingAreaFilter] = useState('');
+  const [rankingSelectedCard, setRankingSelectedCard] = useState('Total');
+  const [rankingSortColumn, setRankingSortColumn] = useState<string>('marks');
+  const [rankingSortDir, setRankingSortDir] = useState<'asc'|'desc'>('desc');
+
+  // Ranking category definitions
+  const rankingCategories = [
+    { key: 'Total', label: 'Total Sales', targetField: 'Total_Target', achField: 'Total_Ach', achPctField: 'Total_Ach_Pct', marksField: 'Total_Marks' },
+    { key: 'Retail', label: 'Retail Sales', targetField: 'Retail_Sales_Target', achField: 'Retail_Sales_Ach', achPctField: 'Retail_Sales_Ach_Pct', marksField: 'Retail_Marks' },
+    { key: 'HireSales', label: 'Hire Sales', targetField: 'Hire_Sales_Target', achField: 'Hire_Sales_Ach', achPctField: 'Hire_Sales_Ach_Pct', marksField: 'Hire_Sales_Marks' },
+    { key: 'HireDP', label: 'Hire DP Collection', targetField: 'Hire_DP_Target', achField: 'Hire_DP_Ach', achPctField: 'Hire_DP_Ach_Pct', marksField: 'Hire_DP_Marks' },
+    { key: 'HireLPR', label: 'Hire Installment/LPR', targetField: 'Hire_LPR_Target', achField: 'Hire_LPR_Ach', achPctField: 'Hire_LPR_Ach_Pct', marksField: 'Hire_LPR_Marks' },
+    { key: 'HireCashAcc', label: 'Hire Cash Account', targetField: 'Hire_Cash_Acc_Target', achField: 'Hire_Cash_Acc_Ach', achPctField: 'Hire_Cash_Acc_Ach_Pct', marksField: 'Hire_Cash_Acc_Marks' },
+    { key: 'HireDigitalAcc', label: 'Hire Digital Account', targetField: 'Hire_Digital_Acc_Target', achField: 'Hire_Digital_Acc_Ach', achPctField: 'Hire_Digital_Acc_Ach_Pct', marksField: 'Hire_Digital_Acc_Marks' },
+    { key: 'DealerSales', label: 'Dealer Sales', targetField: 'Dealer_Sales_Target', achField: 'Dealer_Sales_Ach', achPctField: 'Dealer_Sales_Ach_Pct', marksField: 'Dealer_Sales_Marks' },
+    { key: 'CorpSales', label: 'Corporate Sales', targetField: 'Corporate_Sales_Target', achField: 'Corporate_Sales_Ach', achPctField: 'Corporate_Sales_Ach_Pct', marksField: 'Corporate_Sales_Marks' },
+    { key: 'DealerCol', label: 'Dealer Collection', targetField: 'Dealer_Collection_Target', achField: 'Dealer_Collection_Ach', achPctField: 'Dealer_Collection_Ach_Pct', marksField: 'Dealer_Collection_Marks' },
+    { key: 'CorpCol', label: 'Corporate Collection', targetField: 'Corporate_Collection_Target', achField: 'Corporate_Collection_Ach', achPctField: 'Corporate_Collection_Ach_Pct', marksField: 'Corporate_Collection_Marks' },
+    { key: 'SalesGrowth', label: 'Sales Growth', targetField: 'Sales_Growth_Target', achField: 'Sales_Growth_Ach', achPctField: null, marksField: 'Sales_Growth_Marks' },
+    { key: 'NetProfit', label: 'Net Profit', targetField: 'Net_Profit_Target', achField: 'Net_Profit_Ach', achPctField: 'Net_Profit_Ach_Pct', marksField: 'Net_Profit_Marks' },
+    { key: 'Fridge', label: 'Fridge Sales', targetField: 'Fridge_Sales_Target', achField: 'Fridge_Sales_Ach', achPctField: 'Fridge_Sales_Ach_Pct', marksField: 'Fridge_Sales_Marks' },
+    { key: 'TV', label: 'TV Sales', targetField: 'TV_Sales_Target', achField: 'TV_Sales_Ach', achPctField: 'TV_Sales_Ach_Pct', marksField: 'TV_Sales_Marks' },
+    { key: 'AC', label: 'AC Sales', targetField: 'AC_Sales_Target', achField: 'AC_Sales_Ach', achPctField: 'AC_Sales_Ach_Pct', marksField: 'AC_Sales_Marks' },
+    { key: 'HAP', label: 'HAP Sales', targetField: 'HAP_Sales_Target', achField: 'HAP_Sales_Ach', achPctField: 'HAP_Sales_Ach_Pct', marksField: 'HAP_Sales_Marks' },
+    { key: 'EAP', label: 'EAP Sales', targetField: 'EAP_Sales_Target', achField: 'EAP_Sales_Ach', achPctField: 'EAP_Sales_Ach_Pct', marksField: 'EAP_Sales_Marks' },
+    { key: 'Mobile', label: 'Mobile Sales', targetField: 'Mobile_Sales_Target', achField: 'Mobile_Sales_Ach', achPctField: 'Mobile_Sales_Ach_Pct', marksField: 'Mobile_Sales_Marks' },
+    { key: 'IT', label: 'IT Sales', targetField: 'IT_Sales_Target', achField: 'IT_Sales_Ach', achPctField: 'IT_Sales_Ach_Pct', marksField: 'IT_Sales_Marks' },
+  ];
+
   // Firebase sync state
   const [isSavingTarget, setIsSavingTarget] = useState(false);
   const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
@@ -138,6 +230,204 @@ function App() {
   const [savedMonthLabel, setSavedMonthLabel] = useState('');
 
   // Load saved previous month data from Firestore on mount
+  // Shared helper: parse a single Excel row into PlazaData using new column structure
+  const parseExcelRow = (r: any[]): PlazaData => ({
+    Rank_No: r[1],
+    Division: r[2],
+    Area: r[3],
+    Plaza: r[4],
+    Total_Marks: parseFloat(r[5]) || 0,
+    allColumns: r,
+    // Total Sales
+    Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
+    Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+    Total_Ach_Pct: parseFloat(r[9]) || 0,
+    Achv_Pct: parseFloat(r[9]) || 0,
+    // Retail Sales
+    Retail_Sales_Target: parseFloat((r[10] || '').toString().replace(/,/g, '')) || 0,
+    Retail_Sales_Ach: parseFloat((r[11] || '').toString().replace(/,/g, '')) || 0,
+    Retail_Sales_Ach_Pct: parseFloat(r[12]) || 0,
+    Retail_Marks: parseFloat(r[13]) || 0,
+    // Hire Sales
+    Hire_Sales_Target: parseFloat((r[14] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Sales_Ach: parseFloat((r[15] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Sales_Ach_Pct: parseFloat(r[16]) || 0,
+    Hire_Sales_Marks: parseFloat(r[17]) || 0,
+    // Hire DP Collection
+    Hire_DP_Target: parseFloat((r[18] || '').toString().replace(/,/g, '')) || 0,
+    Hire_DP_Ach: parseFloat((r[19] || '').toString().replace(/,/g, '')) || 0,
+    Hire_DP_Ach_Pct: parseFloat(r[20]) || 0,
+    Hire_DP_Marks: parseFloat(r[21]) || 0,
+    // Hire LPR Collection
+    Hire_LPR_Target: parseFloat((r[22] || '').toString().replace(/,/g, '')) || 0,
+    Hire_LPR_Ach: parseFloat((r[23] || '').toString().replace(/,/g, '')) || 0,
+    Hire_LPR_Ach_Pct: parseFloat(r[24]) || 0,
+    Hire_LPR_Marks: parseFloat(r[25]) || 0,
+    // Hire Collection Account Cash
+    Hire_Cash_Acc_Target: parseFloat((r[26] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Cash_Acc_Ach: parseFloat((r[27] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Cash_Acc_Ach_Pct: parseFloat(r[28]) || 0,
+    Hire_Cash_Acc_Marks: parseFloat(r[29]) || 0,
+    // Hire Collection Account Digital
+    Hire_Digital_Acc_Target: parseFloat((r[30] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Digital_Acc_Ach: parseFloat((r[31] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Digital_Acc_Ach_Pct: parseFloat(r[32]) || 0,
+    Hire_Digital_Acc_Marks: parseFloat(r[33]) || 0,
+    // Dealer Sales
+    Dealer_Sales_Target: parseFloat((r[34] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Sales_Ach: parseFloat((r[35] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Sales_Ach_Pct: parseFloat(r[36]) || 0,
+    Dealer_Sales_Marks: parseFloat(r[37]) || 0,
+    // Corporate Sales
+    Corporate_Sales_Target: parseFloat((r[38] || '').toString().replace(/,/g, '')) || 0,
+    Corporate_Sales_Ach: parseFloat((r[39] || '').toString().replace(/,/g, '')) || 0,
+    Corporate_Sales_Ach_Pct: parseFloat(r[40]) || 0,
+    Corporate_Sales_Marks: parseFloat(r[41]) || 0,
+    // Dealer Collection
+    Dealer_Collection_Target: parseFloat((r[42] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Collection_Ach: parseFloat((r[43] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Collection_Ach_Pct: parseFloat(r[44]) || 0,
+    Dealer_Collection_Marks: parseFloat(r[45]) || 0,
+    // Corporate Collection
+    Corporate_Collection_Target: parseFloat((r[46] || '').toString().replace(/,/g, '')) || 0,
+    Corporate_Collection_Ach: parseFloat((r[47] || '').toString().replace(/,/g, '')) || 0,
+    Corporate_Collection_Ach_Pct: parseFloat(r[48]) || 0,
+    Corporate_Collection_Marks: parseFloat(r[49]) || 0,
+    // Sales Growth Cumulative
+    Sales_Growth_Target: parseFloat((r[50] || '').toString().replace(/,/g, '')) || 0,
+    Sales_Growth_Ach: parseFloat((r[51] || '').toString().replace(/,/g, '')) || 0,
+    Sales_Growth_Status: (r[52] || '').toString().trim(),
+    Sales_Growth_Marks: parseFloat(r[53]) || 0,
+    // Net Profit
+    Net_Profit_Target: parseFloat((r[54] || '').toString().replace(/,/g, '')) || 0,
+    Net_Profit_Ach: parseFloat((r[55] || '').toString().replace(/,/g, '')) || 0,
+    Net_Profit_Ach_Pct: parseFloat(r[56]) || 0,
+    Net_Profit_Marks: parseFloat(r[57]) || 0,
+    Profit_Achv: parseFloat((r[55] || '').toString().replace(/,/g, '')) || 0,
+    // Fridge Sales
+    Fridge_Sales_Target: parseFloat((r[58] || '').toString().replace(/,/g, '')) || 0,
+    Fridge_Sales_Ach: parseFloat((r[59] || '').toString().replace(/,/g, '')) || 0,
+    Fridge_Sales_Ach_Pct: parseFloat(r[60]) || 0,
+    Fridge_Sales_Marks: parseFloat(r[61]) || 0,
+    // TV Sales
+    TV_Sales_Target: parseFloat((r[62] || '').toString().replace(/,/g, '')) || 0,
+    TV_Sales_Ach: parseFloat((r[63] || '').toString().replace(/,/g, '')) || 0,
+    TV_Sales_Ach_Pct: parseFloat(r[64]) || 0,
+    TV_Sales_Marks: parseFloat(r[65]) || 0,
+    // AC Sales
+    AC_Sales_Target: parseFloat((r[66] || '').toString().replace(/,/g, '')) || 0,
+    AC_Sales_Ach: parseFloat((r[67] || '').toString().replace(/,/g, '')) || 0,
+    AC_Sales_Ach_Pct: parseFloat(r[68]) || 0,
+    AC_Sales_Marks: parseFloat(r[69]) || 0,
+    // HAP Sales
+    HAP_Sales_Target: parseFloat((r[70] || '').toString().replace(/,/g, '')) || 0,
+    HAP_Sales_Ach: parseFloat((r[71] || '').toString().replace(/,/g, '')) || 0,
+    HAP_Sales_Ach_Pct: parseFloat(r[72]) || 0,
+    HAP_Sales_Marks: parseFloat(r[73]) || 0,
+    // EAP Sales
+    EAP_Sales_Target: parseFloat((r[74] || '').toString().replace(/,/g, '')) || 0,
+    EAP_Sales_Ach: parseFloat((r[75] || '').toString().replace(/,/g, '')) || 0,
+    EAP_Sales_Ach_Pct: parseFloat(r[76]) || 0,
+    EAP_Sales_Marks: parseFloat(r[77]) || 0,
+    // Mobile Sales
+    Mobile_Sales_Target: parseFloat((r[78] || '').toString().replace(/,/g, '')) || 0,
+    Mobile_Sales_Ach: parseFloat((r[79] || '').toString().replace(/,/g, '')) || 0,
+    Mobile_Sales_Ach_Pct: parseFloat(r[80]) || 0,
+    Mobile_Sales_Marks: parseFloat(r[81]) || 0,
+    // IT Sales
+    IT_Sales_Target: parseFloat((r[82] || '').toString().replace(/,/g, '')) || 0,
+    IT_Sales_Ach: parseFloat((r[84] || '').toString().replace(/,/g, '')) || 0,
+    IT_Sales_Ach_Pct: parseFloat(r[86]) || 0,
+    IT_Sales_Marks: parseFloat(r[87]) || 0,
+  });
+
+  // Old format parser (previous Excel column structure)
+  const parseExcelRowOld = (r: any[]): PlazaData => ({
+    Rank_No: r[1],
+    Plaza: r[2],
+    Area: r[3],
+    Division: r[4],
+    Total_Marks: parseFloat(r[5]) || 0,
+    allColumns: r,
+    // Total Sales
+    Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
+    Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+    Total_Ach_Pct: parseFloat(r[9]) || 0,
+    Achv_Pct: parseFloat(r[9]) || 0,
+    // Retail Sales
+    Retail_Sales_Target: parseFloat((r[10] || '').toString().replace(/,/g, '')) || 0,
+    Retail_Sales_Ach: parseFloat((r[11] || '').toString().replace(/,/g, '')) || 0,
+    Retail_Sales_Ach_Pct: parseFloat(r[12]) || 0,
+    // Hire Sales
+    Hire_Sales_Target: parseFloat((r[14] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Sales_Ach: parseFloat((r[15] || '').toString().replace(/,/g, '')) || 0,
+    Hire_Sales_Ach_Pct: parseFloat(r[17]) || 0,
+    // Hire DP Collection (old: Hire_DP_Col)
+    Hire_DP_Target: parseFloat((r[20] || '').toString().replace(/,/g, '')) || 0,
+    Hire_DP_Ach: parseFloat((r[21] || '').toString().replace(/,/g, '')) || 0,
+    Hire_DP_Ach_Pct: parseFloat(r[22]) || 0,
+    // Hire LPR Collection (old: Hire_LPR_Col)
+    Hire_LPR_Target: parseFloat((r[24] || '').toString().replace(/,/g, '')) || 0,
+    Hire_LPR_Ach: parseFloat((r[26] || '').toString().replace(/,/g, '')) || 0,
+    Hire_LPR_Ach_Pct: parseFloat(r[29]) || 0,
+    // Dealer Sales (old: Dealer_Corp_Sales - combined, map to Dealer_Sales)
+    Dealer_Sales_Target: parseFloat((r[39] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Sales_Ach: parseFloat((r[40] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Sales_Ach_Pct: parseFloat(r[41]) || 0,
+    // Dealer Collection (old: Dealer_Corp_Col - combined, map to Dealer_Collection)
+    Dealer_Collection_Target: parseFloat((r[43] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Collection_Ach: parseFloat((r[44] || '').toString().replace(/,/g, '')) || 0,
+    Dealer_Collection_Ach_Pct: parseFloat(r[45]) || 0,
+    // Net Profit (old: Profit)
+    Net_Profit_Target: parseFloat((r[47] || '').toString().replace(/,/g, '')) || 0,
+    Net_Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+    Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
+  });
+
+  // Detect Excel format: returns 'new' or 'old'
+  // New format has "Division" in header rows at column index 2
+  // Old format has "Plaza" in header rows at column index 2
+  const detectExcelFormat = (raw: any[][]): 'new' | 'old' => {
+    // Check first 8 rows (header area) for distinguishing keywords
+    for (let rowIdx = 0; rowIdx < Math.min(8, raw.length); rowIdx++) {
+      const row = raw[rowIdx];
+      if (!row) continue;
+      for (let colIdx = 0; colIdx < Math.min(10, row.length); colIdx++) {
+        const cellVal = (row[colIdx] || '').toString().trim().toLowerCase();
+        if (cellVal === 'division' && colIdx <= 4) {
+          // In new format, Division is at col 2; in old format it's at col 4
+          if (colIdx === 2) return 'new';
+          if (colIdx === 4) return 'old';
+        }
+      }
+    }
+    // Fallback: check if column count is large (new format has 88+ columns)
+    for (let rowIdx = 0; rowIdx < Math.min(8, raw.length); rowIdx++) {
+      if (raw[rowIdx] && raw[rowIdx].length > 60) return 'new';
+    }
+    // Default to new format
+    return 'new';
+  };
+
+  // Universal parse function: auto-detects format and parses accordingly
+  const parseExcelRows = (raw: any[][]): PlazaData[] => {
+    const format = detectExcelFormat(raw);
+    const parser = format === 'new' ? parseExcelRow : parseExcelRowOld;
+    console.log('Detected Excel format:', format);
+    const rows = raw.slice(7);
+    return rows.map(parser).filter(filterValidPlaza);
+  };
+
+  const filterValidPlaza = (d: PlazaData): boolean => {
+    const plazaName = d.Plaza?.toString().trim();
+    return plazaName &&
+           plazaName !== '' &&
+           plazaName !== '0' &&
+           plazaName !== 'Plaza' &&
+           plazaName !== 'undefined' &&
+           plazaName !== 'null';
+  };
+
   useEffect(() => {
     const loadSavedPrevious = async () => {
       setIsLoadingPrevious(true);
@@ -257,7 +547,7 @@ function App() {
           : '0.00%';
         
         // Calculate Total Profit
-        const totalProfit = tangailCurrent.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0);
+        const totalProfit = tangailCurrent.reduce((sum, d) => sum + (d.Net_Profit_Ach || 0), 0);
         
         // Calculate Growth Plazas (plazas with increased achievement)
         const growthPlazas = tangailCurrent.filter(current => {
@@ -278,10 +568,10 @@ function App() {
         }).length;
 
         // Calculate Profit Plazas (plazas with positive profit)
-        const profitPlazas = tangailCurrent.filter(d => (d.Profit_Ach || 0) > 0).length;
+        const profitPlazas = tangailCurrent.filter(d => (d.Net_Profit_Ach || 0) > 0).length;
         
         // Calculate Loss Plazas (plazas with negative profit)
-        const lossPlazas = tangailCurrent.filter(d => (d.Profit_Ach || 0) < 0).length;
+        const lossPlazas = tangailCurrent.filter(d => (d.Net_Profit_Ach || 0) < 0).length;
         
         console.log('Sending Tangail report to Telegram (silent mode)...');
         sendTangailReportToTelegram({
@@ -306,7 +596,7 @@ function App() {
           const growthDegrowthPercent = previousSale > 0 
             ? ((growthDegrowth / previousSale) * 100).toFixed(2) + '%'
             : '0.00%';
-          const profit = current.Profit_Ach || 0;
+          const profit = current.Net_Profit_Ach || 0;
 
           return {
             plaza: current.Plaza,
@@ -337,9 +627,95 @@ function App() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      // Create proper header mapping
-      const headerMapping: { [key: number]: string } = {
-        0: 'S/N',
+      // Detect format and create header mapping
+      const format = detectExcelFormat(raw);
+      const headerMapping: { [key: number]: string } = format === 'new' ? {
+        1: 'Rank No',
+        2: 'Division',
+        3: 'Area',
+        4: 'Plaza',
+        5: 'Total Marks',
+        6: 'Total Sales Target',
+        8: 'Total Sales Achv',
+        9: 'Total Sales Achv %',
+        10: 'Retail Sales Target',
+        11: 'Retail Sales Achv',
+        12: 'Retail Sales Achv %',
+        13: 'Retail Marks (10)',
+        14: 'Hire Sales Target',
+        15: 'Hire Sales Achv',
+        16: 'Hire Sales Achv %',
+        17: 'Hire Sales Marks (12)',
+        18: 'Hire DP Target',
+        19: 'Hire DP Achv',
+        20: 'Hire DP Achv %',
+        21: 'Hire DP Marks',
+        22: 'Hire LPR Target',
+        23: 'Hire LPR Achv',
+        24: 'Hire LPR Achv %',
+        25: 'Hire LPR Marks',
+        26: 'Hire Cash Acc Target',
+        27: 'Hire Cash Acc Achv',
+        28: 'Hire Cash Acc Achv %',
+        29: 'Hire Cash Acc Marks',
+        30: 'Hire Digital Acc Target',
+        31: 'Hire Digital Acc Achv',
+        32: 'Hire Digital Acc Achv %',
+        33: 'Hire Digital Acc Marks',
+        34: 'Dealer Sales Target',
+        35: 'Dealer Sales Achv',
+        36: 'Dealer Sales Achv %',
+        37: 'Dealer Sales Marks (8)',
+        38: 'Corporate Sales Target',
+        39: 'Corporate Sales Achv',
+        40: 'Corporate Sales Achv %',
+        41: 'Corporate Sales Marks (7)',
+        42: 'Dealer Collection Target',
+        43: 'Dealer Collection Achv',
+        44: 'Dealer Collection Achv %',
+        45: 'Dealer Collection Marks (8)',
+        46: 'Corporate Collection Target',
+        47: 'Corporate Collection Achv',
+        48: 'Corporate Collection Achv %',
+        49: 'Corporate Collection Marks (7)',
+        50: 'Sales Growth Target',
+        51: 'Sales Growth Achv',
+        52: 'Sales Growth Status',
+        53: 'Sales Growth Marks (4)',
+        54: 'Net Profit Target',
+        55: 'Net Profit Achv',
+        56: 'Net Profit Achv %',
+        57: 'Net Profit Marks (22)',
+        58: 'Fridge Sales Target',
+        59: 'Fridge Sales Achv',
+        60: 'Fridge Sales Achv %',
+        61: 'Fridge Sales Marks (6)',
+        62: 'TV Sales Target',
+        63: 'TV Sales Achv',
+        64: 'TV Sales Achv %',
+        65: 'TV Sales Marks (3)',
+        66: 'AC Sales Target',
+        67: 'AC Sales Achv',
+        68: 'AC Sales Achv %',
+        69: 'AC Sales Marks (3)',
+        70: 'HAP Sales Target',
+        71: 'HAP Sales Achv',
+        72: 'HAP Sales Achv %',
+        73: 'HAP Sales Marks (3)',
+        74: 'EAP Sales Target',
+        75: 'EAP Sales Achv',
+        76: 'EAP Sales Achv %',
+        77: 'EAP Sales Marks (2)',
+        78: 'Mobile Sales Target',
+        79: 'Mobile Sales Achv',
+        80: 'Mobile Sales Achv %',
+        81: 'Mobile Sales Marks (3)',
+        82: 'IT Sales Target',
+        84: 'IT Sales Achv',
+        86: 'IT Sales Achv %',
+        87: 'IT Sales Marks (2)',
+      } : {
+        // Old format header mapping
         1: 'Rank No',
         2: 'Plaza',
         3: 'Area',
@@ -351,105 +727,28 @@ function App() {
         10: 'Retail Sales Tk',
         11: 'Retail Achv',
         12: 'Retail Achv %',
-        13: 'Retail Marks (15)',
         14: 'Hire Sales Tk',
         15: 'Hire Achv',
         17: 'Hire Achv %',
-        19: 'Hire Marks (17)',
         20: 'Hire DP Col Tk',
         21: 'DP Achv',
         22: 'DP Achv %',
-        23: 'DP Marks (5)',
-        24: 'LPR Col Tk',
+        24: 'Hire LPR Col Tk',
         26: 'LPR Achv',
         29: 'LPR Achv %',
-        30: 'LPR Marks (11)',
-        31: 'Col Exec Qty',
-        32: 'Col Exec Achv',
-        33: 'Col Exec Achv %',
-        34: 'Col Exec Marks (6)',
-        35: 'Col Self Qty',
-        36: 'Col Self Achv',
-        37: 'Col Self Achv %',
-        38: 'Col Self Marks (6)',
         39: 'Dealer Corp Sales Tk',
-        40: 'Dealer Corp Achv',
-        41: 'Dealer Corp Achv %',
-        42: 'Dealer Corp Marks (6)',
+        40: 'Dealer Corp Sales Achv',
+        41: 'Dealer Corp Sales Achv %',
         43: 'Dealer Corp Col Tk',
         44: 'Dealer Corp Col Achv',
         45: 'Dealer Corp Col Achv %',
-        46: 'Dealer Corp Col Marks (7)',
         47: 'Profit Tk',
         49: 'Profit Achv',
-        50: 'Profit Achv %',
-        51: 'Profit Marks (27)',
       };
       
-      setHeaders(headerMapping);
+      if (typeof setHeaders === 'function') setHeaders(headerMapping);
 
-      const rows = raw.slice(7);
-      const parsedData: PlazaData[] = rows
-        .map((r) => ({
-          Rank_No: r[1],
-          Plaza: r[2],
-          Area: r[3],
-          Division: r[4],
-          Total_Marks: parseFloat(r[5]) || 0,
-          Achv_Pct: parseFloat(r[9]) || 0,
-          Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-          allColumns: r,
-          // Target fields
-          Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
-          Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
-          Total_Ach_Pct: parseFloat(r[9]) || 0,
-          
-          Retail_Sales_Target: parseFloat((r[10] || '').toString().replace(/,/g, '')) || 0,
-          Retail_Sales_Ach: parseFloat((r[11] || '').toString().replace(/,/g, '')) || 0,
-          Retail_Sales_Ach_Pct: parseFloat(r[12]) || 0,
-          
-          Hire_Sales_Target: parseFloat((r[14] || '').toString().replace(/,/g, '')) || 0,
-          Hire_Sales_Ach: parseFloat((r[15] || '').toString().replace(/,/g, '')) || 0,
-          Hire_Sales_Ach_Pct: parseFloat(r[17]) || 0,
-          
-          Hire_DP_Col_Target: parseFloat((r[20] || '').toString().replace(/,/g, '')) || 0,
-          Hire_DP_Col_Ach: parseFloat((r[21] || '').toString().replace(/,/g, '')) || 0,
-          Hire_DP_Col_Ach_Pct: parseFloat(r[22]) || 0,
-          
-          Hire_LPR_Col_Target: parseFloat((r[24] || '').toString().replace(/,/g, '')) || 0,
-          Hire_LPR_Col_Ach: parseFloat((r[26] || '').toString().replace(/,/g, '')) || 0,
-          Hire_LPR_Col_Ach_Pct: parseFloat(r[29]) || 0,
-          
-          Col_Exec_Target: parseFloat((r[31] || '').toString().replace(/,/g, '')) || 0,
-          Col_Exec_Ach: parseFloat((r[32] || '').toString().replace(/,/g, '')) || 0,
-          Col_Exec_Ach_Pct: parseFloat(r[33]) || 0,
-          
-          Col_Self_Target: parseFloat((r[35] || '').toString().replace(/,/g, '')) || 0,
-          Col_Self_Ach: parseFloat((r[36] || '').toString().replace(/,/g, '')) || 0,
-          Col_Self_Ach_Pct: parseFloat(r[37]) || 0,
-          
-          Dealer_Corp_Sales_Target: parseFloat((r[39] || '').toString().replace(/,/g, '')) || 0,
-          Dealer_Corp_Sales_Ach: parseFloat((r[40] || '').toString().replace(/,/g, '')) || 0,
-          Dealer_Corp_Sales_Ach_Pct: parseFloat(r[41]) || 0,
-          
-          Dealer_Corp_Col_Target: parseFloat((r[43] || '').toString().replace(/,/g, '')) || 0,
-          Dealer_Corp_Col_Ach: parseFloat((r[44] || '').toString().replace(/,/g, '')) || 0,
-          Dealer_Corp_Col_Ach_Pct: parseFloat(r[45]) || 0,
-          
-          Profit_Target: parseFloat((r[47] || '').toString().replace(/,/g, '')) || 0,
-          Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-          Profit_Ach_Pct: parseFloat(r[50]) || 0,
-        }))
-        .filter((d) => {
-          const plazaName = d.Plaza?.toString().trim();
-          // Filter out empty, "0", "Plaza" (header), or invalid plaza names
-          return plazaName && 
-                 plazaName !== '' && 
-                 plazaName !== '0' && 
-                 plazaName !== 'Plaza' && 
-                 plazaName !== 'undefined' && 
-                 plazaName !== 'null';
-        });
+      const parsedData: PlazaData[] = parseExcelRows(raw);
 
       setFullData(parsedData);
       setFilteredData(parsedData);
@@ -463,7 +762,7 @@ function App() {
         const totalTarget = tangailData.reduce((sum, d) => sum + (d.Total_Target || 0), 0);
         const totalAch = tangailData.reduce((sum, d) => sum + (d.Total_Ach || 0), 0);
         const avgAchv = totalTarget > 0 ? ((totalAch / totalTarget) * 100).toFixed(2) : '0.00';
-        const totalProfit = tangailData.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0);
+        const totalProfit = tangailData.reduce((sum, d) => sum + (d.Net_Profit_Ach || 0), 0);
         
         sendTangailReportToTelegram({
           totalPlazas: tangailData.length,
@@ -576,27 +875,57 @@ function App() {
       'Hire Sales Target (Tk.)': d.Hire_Sales_Target || 0,
       'Hire Sales Ach': d.Hire_Sales_Ach || 0,
       'Hire Sales Ach %': d.Hire_Sales_Ach_Pct || 0,
-      'Hire DP Collection Target (Tk.)': d.Hire_DP_Col_Target || 0,
-      'Hire DP Collection Ach': d.Hire_DP_Col_Ach || 0,
-      'Hire DP Collection Ach %': d.Hire_DP_Col_Ach_Pct || 0,
-      'Hire LPR Collection Target (Tk.)': d.Hire_LPR_Col_Target || 0,
-      'Hire LPR Collection Ach': d.Hire_LPR_Col_Ach || 0,
-      'Hire LPR Collection Ach %': d.Hire_LPR_Col_Ach_Pct || 0,
-      'Collection Executive Target (Qty.)': d.Col_Exec_Target || 0,
-      'Collection Executive Ach': d.Col_Exec_Ach || 0,
-      'Collection Executive Ach %': d.Col_Exec_Ach_Pct || 0,
-      'Collection Self Target (Qty.)': d.Col_Self_Target || 0,
-      'Collection Self Ach': d.Col_Self_Ach || 0,
-      'Collection Self Ach %': d.Col_Self_Ach_Pct || 0,
-      'Dealer & Corporate Sales Target (Tk.)': d.Dealer_Corp_Sales_Target || 0,
-      'Dealer & Corporate Sales Ach': d.Dealer_Corp_Sales_Ach || 0,
-      'Dealer & Corporate Sales Ach %': d.Dealer_Corp_Sales_Ach_Pct || 0,
-      'Dealer & Corporate Collection Target (Tk.)': d.Dealer_Corp_Col_Target || 0,
-      'Dealer & Corporate Collection Ach': d.Dealer_Corp_Col_Ach || 0,
-      'Dealer & Corporate Collection Ach %': d.Dealer_Corp_Col_Ach_Pct || 0,
-      'Profit Target (Tk.)': d.Profit_Target || 0,
-      'Profit Ach': d.Profit_Ach || 0,
-      'Profit Ach %': d.Profit_Ach_Pct || 0,
+      'Hire DP Collection Target (Tk.)': d.Hire_DP_Target || 0,
+      'Hire DP Collection Ach': d.Hire_DP_Ach || 0,
+      'Hire DP Collection Ach %': d.Hire_DP_Ach_Pct || 0,
+      'Hire LPR Collection Target (Tk.)': d.Hire_LPR_Target || 0,
+      'Hire LPR Collection Ach': d.Hire_LPR_Ach || 0,
+      'Hire LPR Collection Ach %': d.Hire_LPR_Ach_Pct || 0,
+      'Hire Cash Acc Target (Qty.)': d.Hire_Cash_Acc_Target || 0,
+      'Hire Cash Acc Ach': d.Hire_Cash_Acc_Ach || 0,
+      'Hire Cash Acc Ach %': d.Hire_Cash_Acc_Ach_Pct || 0,
+      'Hire Digital Acc Target (Qty.)': d.Hire_Digital_Acc_Target || 0,
+      'Hire Digital Acc Ach': d.Hire_Digital_Acc_Ach || 0,
+      'Hire Digital Acc Ach %': d.Hire_Digital_Acc_Ach_Pct || 0,
+      'Dealer Sales Target (Tk.)': d.Dealer_Sales_Target || 0,
+      'Dealer Sales Ach': d.Dealer_Sales_Ach || 0,
+      'Dealer Sales Ach %': d.Dealer_Sales_Ach_Pct || 0,
+      'Corporate Sales Target (Tk.)': d.Corporate_Sales_Target || 0,
+      'Corporate Sales Ach': d.Corporate_Sales_Ach || 0,
+      'Corporate Sales Ach %': d.Corporate_Sales_Ach_Pct || 0,
+      'Dealer Collection Target (Tk.)': d.Dealer_Collection_Target || 0,
+      'Dealer Collection Ach': d.Dealer_Collection_Ach || 0,
+      'Dealer Collection Ach %': d.Dealer_Collection_Ach_Pct || 0,
+      'Corporate Collection Target (Tk.)': d.Corporate_Collection_Target || 0,
+      'Corporate Collection Ach': d.Corporate_Collection_Ach || 0,
+      'Corporate Collection Ach %': d.Corporate_Collection_Ach_Pct || 0,
+      'Sales Growth Target': d.Sales_Growth_Target || 0,
+      'Sales Growth Ach': d.Sales_Growth_Ach || 0,
+      'Sales Growth Status': d.Sales_Growth_Status || '',
+      'Net Profit Target (Tk.)': d.Net_Profit_Target || 0,
+      'Net Profit Ach': d.Net_Profit_Ach || 0,
+      'Net Profit Ach %': d.Net_Profit_Ach_Pct || 0,
+      'Fridge Sales Target (Tk.)': d.Fridge_Sales_Target || 0,
+      'Fridge Sales Ach': d.Fridge_Sales_Ach || 0,
+      'Fridge Sales Ach %': d.Fridge_Sales_Ach_Pct || 0,
+      'TV Sales Target (Tk.)': d.TV_Sales_Target || 0,
+      'TV Sales Ach': d.TV_Sales_Ach || 0,
+      'TV Sales Ach %': d.TV_Sales_Ach_Pct || 0,
+      'AC Sales Target (Tk.)': d.AC_Sales_Target || 0,
+      'AC Sales Ach': d.AC_Sales_Ach || 0,
+      'AC Sales Ach %': d.AC_Sales_Ach_Pct || 0,
+      'HAP Sales Target (Tk.)': d.HAP_Sales_Target || 0,
+      'HAP Sales Ach': d.HAP_Sales_Ach || 0,
+      'HAP Sales Ach %': d.HAP_Sales_Ach_Pct || 0,
+      'EAP Sales Target (Tk.)': d.EAP_Sales_Target || 0,
+      'EAP Sales Ach': d.EAP_Sales_Ach || 0,
+      'EAP Sales Ach %': d.EAP_Sales_Ach_Pct || 0,
+      'Mobile Sales Target (Tk.)': d.Mobile_Sales_Target || 0,
+      'Mobile Sales Ach': d.Mobile_Sales_Ach || 0,
+      'Mobile Sales Ach %': d.Mobile_Sales_Ach_Pct || 0,
+      'IT Sales Target (Tk.)': d.IT_Sales_Target || 0,
+      'IT Sales Ach': d.IT_Sales_Ach || 0,
+      'IT Sales Ach %': d.IT_Sales_Ach_Pct || 0,
     }));
 
     // Create worksheet
@@ -653,7 +982,7 @@ function App() {
           'Slab-1 Ach %': slab1AchPct + '%',
           'Slab-2 Target': slab2Target,
           'Slab-2 Ach %': slab2AchPct + '%',
-          'Profit Ach': plaza.Profit_Ach || 0,
+          'Profit Ach': plaza.Net_Profit_Ach || 0,
         });
       });
       
@@ -674,7 +1003,7 @@ function App() {
       const areaAchPct = areaBaseTarget > 0 ? ((areaAch / areaBaseTarget) * 100).toFixed(2) : '0.00';
       const areaSlab1AchPct = areaSlab1Target > 0 ? ((areaAch / areaSlab1Target) * 100).toFixed(2) : '0.00';
       const areaSlab2AchPct = areaSlab2Target > 0 ? ((areaAch / areaSlab2Target) * 100).toFixed(2) : '0.00';
-      const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+      const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
       
       exportData.push({
         'Area': `${area} - SUBTOTAL`,
@@ -710,7 +1039,7 @@ function App() {
     const grandTotalAchPct = grandTotalBaseTarget > 0 ? ((grandTotalAch / grandTotalBaseTarget) * 100).toFixed(2) : '0.00';
     const grandTotalSlab1AchPct = grandTotalSlab1Target > 0 ? ((grandTotalAch / grandTotalSlab1Target) * 100).toFixed(2) : '0.00';
     const grandTotalSlab2AchPct = grandTotalSlab2Target > 0 ? ((grandTotalAch / grandTotalSlab2Target) * 100).toFixed(2) : '0.00';
-    const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+    const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
 
     exportData.push({
       'Area': 'GRAND TOTAL',
@@ -810,30 +1139,7 @@ function App() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      const rows = raw.slice(7);
-      const parsedData: PlazaData[] = rows
-        .map((r) => ({
-          Rank_No: r[1],
-          Plaza: r[2],
-          Area: r[3],
-          Division: r[4],
-          Total_Marks: parseFloat(r[5]) || 0,
-          Achv_Pct: parseFloat(r[9]) || 0,
-          Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-          allColumns: r,
-          Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
-          Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-        }))
-        .filter((d) => {
-          const plazaName = d.Plaza?.toString().trim();
-          // Filter out empty, "0", "Plaza" (header), or invalid plaza names
-          return plazaName && 
-                 plazaName !== '' && 
-                 plazaName !== '0' && 
-                 plazaName !== 'Plaza' && 
-                 plazaName !== 'undefined' && 
-                 plazaName !== 'null';
-        });
+      const parsedData: PlazaData[] = parseExcelRows(raw);
 
       setData(parsedData);
     };
@@ -855,30 +1161,7 @@ function App() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      const rows = raw.slice(7);
-      const parsedData: PlazaData[] = rows
-        .map((r) => ({
-          Rank_No: r[1],
-          Plaza: r[2],
-          Area: r[3],
-          Division: r[4],
-          Total_Marks: parseFloat(r[5]) || 0,
-          Achv_Pct: parseFloat(r[9]) || 0,
-          Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-          allColumns: r,
-          Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
-          Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
-          Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-        }))
-        .filter((d) => {
-          const plazaName = d.Plaza?.toString().trim();
-          return plazaName && 
-                 plazaName !== '' && 
-                 plazaName !== '0' && 
-                 plazaName !== 'Plaza' && 
-                 plazaName !== 'undefined' && 
-                 plazaName !== 'null';
-        });
+      const parsedData: PlazaData[] = parseExcelRows(raw);
 
       console.log('Parsed current year data:', parsedData.length, 'plazas');
       setCurrentYearData(parsedData);
@@ -904,30 +1187,7 @@ function App() {
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-      const rows = raw.slice(7);
-      const parsedData: PlazaData[] = rows
-        .map((r) => ({
-          Rank_No: r[1],
-          Plaza: r[2],
-          Area: r[3],
-          Division: r[4],
-          Total_Marks: parseFloat(r[5]) || 0,
-          Achv_Pct: parseFloat(r[9]) || 0,
-          Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-          allColumns: r,
-          Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
-          Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
-          Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-        }))
-        .filter((d) => {
-          const plazaName = d.Plaza?.toString().trim();
-          return plazaName && 
-                 plazaName !== '' && 
-                 plazaName !== '0' && 
-                 plazaName !== 'Plaza' && 
-                 plazaName !== 'undefined' && 
-                 plazaName !== 'null';
-        });
+      const parsedData: PlazaData[] = parseExcelRows(raw);
 
       console.log('Parsed previous year data:', parsedData.length, 'plazas');
       setPreviousYearData(parsedData);
@@ -955,30 +1215,7 @@ function App() {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        const rows = raw.slice(7);
-        const parsedData: PlazaData[] = rows
-          .map((r) => ({
-            Rank_No: r[1],
-            Plaza: r[2],
-            Area: r[3],
-            Division: r[4],
-            Total_Marks: parseFloat(r[5]) || 0,
-            Achv_Pct: parseFloat(r[9]) || 0,
-            Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-            allColumns: r,
-            Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
-            Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
-            Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-          }))
-          .filter((d) => {
-            const plazaName = d.Plaza?.toString().trim();
-            return plazaName && 
-                   plazaName !== '' && 
-                   plazaName !== '0' && 
-                   plazaName !== 'Plaza' && 
-                   plazaName !== 'undefined' && 
-                   plazaName !== 'null';
-          });
+        const parsedData: PlazaData[] = parseExcelRows(raw);
 
         console.log('Parsed current year data (dropped):', parsedData.length, 'plazas');
         setCurrentYearData(parsedData);
@@ -1006,30 +1243,7 @@ function App() {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        const rows = raw.slice(7);
-        const parsedData: PlazaData[] = rows
-          .map((r) => ({
-            Rank_No: r[1],
-            Plaza: r[2],
-            Area: r[3],
-            Division: r[4],
-            Total_Marks: parseFloat(r[5]) || 0,
-            Achv_Pct: parseFloat(r[9]) || 0,
-            Profit_Achv: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-            allColumns: r,
-            Total_Target: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
-            Total_Ach: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
-            Profit_Ach: parseFloat((r[49] || '').toString().replace(/,/g, '')) || 0,
-          }))
-          .filter((d) => {
-            const plazaName = d.Plaza?.toString().trim();
-            return plazaName && 
-                   plazaName !== '' && 
-                   plazaName !== '0' && 
-                   plazaName !== 'Plaza' && 
-                   plazaName !== 'undefined' && 
-                   plazaName !== 'null';
-          });
+        const parsedData: PlazaData[] = parseExcelRows(raw);
 
         console.log('Parsed previous year data (dropped):', parsedData.length, 'plazas');
         setPreviousYearData(parsedData);
@@ -1105,7 +1319,7 @@ function App() {
         Profit_Achv: r.Profit_Achv || 0,
         Total_Target: r.Total_Target || 0,
         Total_Ach: r.Total_Ach || 0,
-        Profit_Ach: r.Profit_Ach || 0,
+        Net_Profit_Ach: r.Net_Profit_Ach || 0,
       }));
 
       for (let i = 0; i < cleanRows.length; i += BATCH_SIZE) {
@@ -1154,7 +1368,7 @@ function App() {
         Profit_Achv: r.Profit_Achv || 0,
         Total_Target: r.Total_Target || 0,
         Total_Ach: r.Total_Ach || 0,
-        Profit_Ach: r.Profit_Ach || 0,
+        Net_Profit_Ach: r.Net_Profit_Ach || 0,
       }));
 
       for (let i = 0; i < cleanRows.length; i += BATCH_SIZE) {
@@ -1473,216 +1687,113 @@ function App() {
       End Hide Performance Dashboard */}
 
       {/* ACH Growth Comparison Section - Always Visible */}
-      <div style={{ 
-        background: 'white', 
-        marginBottom: '30px',
-        borderRadius: '12px',
-        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-        overflow: 'hidden'
-      }}>
-        <div className="comparison-header" style={{ 
-          padding: '20px 30px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        }}>
-          <div>
-            <h2 style={{ 
-              margin: '0 0 5px 0', 
-              color: 'white',
-              fontSize: '24px'
-            }}>📈 ACH Growth Comparison</h2>
-            <p style={{ 
-              color: 'rgba(255,255,255,0.9)', 
-              margin: 0,
-              fontSize: '14px'
-            }}>Upload current year and previous year files to compare achievement growth</p>
-          </div>
+      <div className="ach-section-container">
+        <div className="ach-header">
+          <h2>📈 ACH Growth Comparison</h2>
+          <p>Upload current year and previous year files to compare achievement growth</p>
         </div>
 
-        <div className="section-padding" style={{ padding: '30px' }}>
-            {isLoadingPrevious && (
-              <div style={{ textAlign: 'center', padding: '10px', color: '#667eea', fontSize: '14px', marginBottom: '15px' }}>
-                <span style={{ display: 'inline-block', marginRight: '8px', animation: 'spin 1s linear infinite' }}>⏳</span>
-                Loading previous month data from database...
-              </div>
-            )}
-            <div className="upload-grid" style={{ display: 'grid', gridTemplateColumns: showPreviousYearSection ? '1fr 1fr' : '1fr', gap: '20px', marginBottom: '20px' }}>
-              
-              {/* Current Year Upload */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <h3 style={{ fontSize: '16px', margin: 0, color: '#333' }}>
-                    Current Year File
-                  </h3>
-                  <button
-                    onClick={() => setShowPreviousYearSection(!showPreviousYearSection)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 14px',
-                      background: showPreviousYearSection ? '#f8d7da' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: showPreviousYearSection ? '#721c24' : 'white',
-                      border: 'none',
-                      borderRadius: '20px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {showPreviousYearSection ? '✕ Hide Previous Year' : '📂 Show Previous Year'}
-                  </button>
-                </div>
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setIsDraggingCurrent(true); }}
-                  onDragLeave={(e) => { e.preventDefault(); setIsDraggingCurrent(false); }}
-                  onDrop={handleCurrentYearDrop}
-                  style={{
-                    border: isDraggingCurrent ? '2px dashed #667eea' : '2px dashed #ddd',
-                    background: isDraggingCurrent ? '#f0f4ff' : currentYearData.length > 0 ? '#e8f5e9' : '#f9f9f9',
-                    padding: '20px',
-                    textAlign: 'center',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
-                  }}
+        <div className="ach-content">
+          {isLoadingPrevious && (
+            <div className="loading-indicator">
+              <span className="loading-spinner">⏳</span>
+              Loading previous month data from database...
+            </div>
+          )}
+
+          <div className={`upload-section ${!showPreviousYearSection ? 'single-column' : ''}`}>
+            
+            {/* Current Year Upload Card */}
+            <div className="upload-card">
+              <div className="upload-card-header">
+                <h3 className="upload-card-title">Current Year File</h3>
+                <button
+                  className={`toggle-btn ${showPreviousYearSection ? 'hide' : 'show'}`}
+                  onClick={() => setShowPreviousYearSection(!showPreviousYearSection)}
                 >
-                  {currentYearData.length > 0 ? (
-                    <div>
-                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
-                      <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>
-                        File Loaded Successfully
-                      </p>
-                      <p style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-                        {currentYearData.length} plazas loaded
-                      </p>
-                      
-                      {/* Big Bold Timestamp */}
-                      <div className="timestamp-display" style={{ 
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        padding: '12px 20px',
-                        borderRadius: '8px',
-                        marginBottom: '10px'
-                      }}>
-                        <p style={{ 
-                          fontSize: '16px', 
-                          color: 'white', 
-                          fontWeight: 'bold',
-                          margin: 0,
-                          letterSpacing: '0.5px'
-                        }}>
-                          📅 Data Updated: {formatTimestamp(currentUploadedAt)}
-                        </p>
-                      </div>
-
-                      <div style={{ marginBottom: '8px' }}>
-                        {saveCurrentStatus === 'saving' && (
-                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#fff3cd', color: '#856404', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
-                            ☁️ Saving...
-                          </span>
-                        )}
-                        {saveCurrentStatus === 'saved' && (
-                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d4edda', color: '#155724', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
-                            ✅ Saved
-                          </span>
-                        )}
-                        {saveCurrentStatus === 'error' && (
-                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#f8d7da', color: '#721c24', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
-                            ❌ Failed
-                          </span>
-                        )}
-                        {saveCurrentStatus === 'idle' && (
-                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d1ecf1', color: '#0c5460', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
-                            ☁️ Synced
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <label style={{
-                          display: 'inline-block',
-                          padding: '6px 16px',
-                          background: '#667eea',
-                          color: 'white',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}>
-                          Re-upload
-                          <input type="file" accept=".xls,.xlsx" onChange={handleCurrentYearUpload} style={{ display: 'none' }} />
-                        </label>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: '36px', marginBottom: '10px' }}>📄</div>
-                      <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
-                        {isDraggingCurrent ? 'Drop file here' : 'Drag & drop or click to browse'}
-                      </p>
-                      <label style={{
-                        display: 'inline-block',
-                        padding: '10px 20px',
-                        background: '#667eea',
-                        color: 'white',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500'
-                      }}>
-                        Browse Files
-                        <input
-                          type="file"
-                          accept=".xls,.xlsx"
-                          onChange={handleCurrentYearUpload}
-                          style={{ display: 'none' }}
-                        />
-                      </label>
-                      <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>
-                        Supported formats: .xlsx, .xls
-                      </p>
-                    </>
-                  )}
-                </div>
+                  {showPreviousYearSection ? '✕ Hide Previous Year' : '📂 Show Previous Year'}
+                </button>
               </div>
 
-              {/* Previous Year Upload */}
-              {showPreviousYearSection && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <h3 style={{ fontSize: '16px', margin: 0, color: '#333' }}>Previous Year File</h3>
+              <div
+                className={`dropzone ${isDraggingCurrent ? 'dragging' : ''} ${currentYearData.length > 0 ? 'loaded' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setIsDraggingCurrent(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setIsDraggingCurrent(false); }}
+                onDrop={handleCurrentYearDrop}
+              >
+                {currentYearData.length > 0 ? (
+                  <div>
+                    <div className="dropzone-icon">✅</div>
+                    <p className="dropzone-title">File Loaded Successfully</p>
+                    <p className="dropzone-subtitle">{currentYearData.length} plazas loaded</p>
+                    
+                    <div className="timestamp-badge">
+                      <p>📅 Data Updated: {formatTimestamp(currentUploadedAt)}</p>
+                    </div>
+
+                    <div>
+                      <span className={`sync-status-badge ${
+                        saveCurrentStatus === 'saving' ? 'saving' :
+                        saveCurrentStatus === 'saved' ? 'saved' :
+                        saveCurrentStatus === 'error' ? 'error' : 'synced'
+                      }`}>
+                        {saveCurrentStatus === 'saving' && '☁️ Saving...'}
+                        {saveCurrentStatus === 'saved' && '✅ Saved'}
+                        {saveCurrentStatus === 'error' && '❌ Failed'}
+                        {saveCurrentStatus === 'idle' && '☁️ Synced'}
+                      </span>
+                    </div>
+
+                    <div className="action-buttons">
+                      <label className="upload-btn">
+                        Re-upload
+                        <input type="file" accept=".xls,.xlsx" onChange={handleCurrentYearUpload} />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="dropzone-icon">📄</div>
+                    <p className="dropzone-subtitle">
+                      {isDraggingCurrent ? 'Drop file here' : 'Drag & drop or click to browse'}
+                    </p>
+                    <label className="upload-btn">
+                      Browse Files
+                      <input type="file" accept=".xls,.xlsx" onChange={handleCurrentYearUpload} />
+                    </label>
+                    <p className="file-info">Supported formats: .xlsx, .xls</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Previous Year Upload Card */}
+            {showPreviousYearSection && (
+              <div className="upload-card">
+                <div className="upload-card-header">
+                  <h3 className="upload-card-title">Previous Year File</h3>
                   <button 
+                    className="manage-link"
                     onClick={() => setShowPreviousUploadOptions(!showPreviousUploadOptions)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#667eea',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '12px',
-                      textDecoration: 'underline'
-                    }}
                   >
                     {showPreviousUploadOptions ? 'Hide Options' : 'Manage Upload 🔒'}
                   </button>
                 </div>
 
                 {!showPreviousUploadOptions && (
-                  <div style={{ padding: '30px', background: previousYearData.length > 0 ? '#e8f5e9' : '#f8d7da', textAlign: 'center', borderRadius: '8px', border: previousYearData.length > 0 ? '1px solid #c3e6cb' : '1px solid #f5c6cb' }}>
+                  <div className={`locked-state ${previousYearData.length > 0 ? 'loaded' : 'no-data'}`}>
                     {previousYearData.length > 0 ? (
                       <>
-                        <div style={{ fontSize: '40px', marginBottom: '10px' }}>✅</div>
-                        <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '5px' }}>File Loaded</p>
-                        <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>{previousYearData.length} plazas loaded</p>
-                        <span style={{ display: 'inline-block', padding: '4px 12px', background: '#d1ecf1', color: '#0c5460', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
-                          ☁️ Synced with Firebase
-                        </span>
+                        <div className="dropzone-icon">✅</div>
+                        <p className="dropzone-title">File Loaded</p>
+                        <p className="dropzone-subtitle">{previousYearData.length} plazas loaded</p>
+                        <span className="sync-status-badge synced">☁️ Synced with Firebase</span>
                       </>
                     ) : (
                       <>
-                        <div style={{ fontSize: '36px', marginBottom: '10px' }}>⚠️</div>
-                        <p style={{ color: '#721c24', fontWeight: 'bold', marginBottom: '5px' }}>No Previous Data</p>
-                        <p style={{ fontSize: '13px', color: '#666' }}>Unlock to upload data.</p>
+                        <div className="dropzone-icon">⚠️</div>
+                        <p className="dropzone-title" style={{ color: '#856404' }}>No Previous Data</p>
+                        <p className="dropzone-subtitle">Unlock to upload data.</p>
                       </>
                     )}
                   </div>
@@ -1690,10 +1801,10 @@ function App() {
 
                 {showPreviousUploadOptions && (
                   !isPreviousUploadUnlocked ? (
-                    <div style={{ textAlign: 'center', padding: '30px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #ddd' }}>
-                      <h4 style={{ marginBottom: '10px', color: '#333', fontSize: '14px' }}>🔒 Password Required</h4>
-                      <p style={{ color: '#666', marginBottom: '15px', fontSize: '12px' }}>Enter password to upload previous month data.</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+                    <div className="locked-state">
+                      <h4 style={{ marginBottom: '12px', color: '#333', fontSize: '15px', fontWeight: '600' }}>🔒 Password Required</h4>
+                      <p className="dropzone-subtitle">Enter password to upload previous month data.</p>
+                      <div className="password-form">
                         <input
                           type="password"
                           placeholder="Password..."
@@ -1968,9 +2079,7 @@ function App() {
               }}>
                 <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '13px' }}>Total Plazas</h4>
                 <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#667eea', margin: '0 0 10px 0' }}>
-                  {filteredComparisonData.filter(current => 
-                    previousYearData.find(p => p.Plaza === current.Plaza)
-                  ).length}
+                  {filteredComparisonData.length}
                 </p>
                 <div style={{ 
                   display: 'flex', 
@@ -1987,7 +2096,7 @@ function App() {
                         const previous = previousYearData.find(p => p.Plaza === current.Plaza);
                         const currentAch = current?.Total_Ach ?? 0;
                         const previousAch = previous?.Total_Ach ?? 0;
-                        if (previous && currentAch < previousAch) {
+                        if (currentAch < previousAch) {
                           degrowthCount++;
                         }
                       });
@@ -2011,10 +2120,8 @@ function App() {
                     
                     filteredComparisonData.forEach((current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                      if (previous) {
-                        totalPreviousAch += previous?.Total_Ach ?? 0;
-                        totalCurrentAch += current?.Total_Ach ?? 0;
-                      }
+                      totalPreviousAch += previous?.Total_Ach ?? 0;
+                      totalCurrentAch += current?.Total_Ach ?? 0;
                     });
                     
                     const totalGrowthPercent = totalPreviousAch > 0 
@@ -2037,7 +2144,6 @@ function App() {
                   {(() => {
                     const totalGrowth = filteredComparisonData.reduce((sum, current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                      if (!previous) return sum;
                       const currentAch = current?.Total_Ach ?? 0;
                       const previousAch = previous?.Total_Ach ?? 0;
                       return sum + (currentAch - previousAch);
@@ -2089,11 +2195,8 @@ function App() {
                     marginBottom: '20px'
                   }}>
                     {(() => {
-                      // Calculate all plazas with comparison data
-                      const allComparisonPlazas = filteredComparisonData.filter((current) => {
-                        const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                        return previous !== undefined;
-                      });
+                      // Calculate all plazas (include all, even without previous year data)
+                      const allComparisonPlazas = filteredComparisonData;
 
                       // Calculate degrowth plazas (individual plazas with degrowth)
                       const degrowthPlazas = allComparisonPlazas.filter((current) => {
@@ -2106,7 +2209,6 @@ function App() {
                       // Calculate divisions with overall degrowth
                       const divisionTotals = allComparisonPlazas.reduce((acc, current) => {
                         const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                        if (!previous) return acc;
                         
                         if (!acc[current.Division]) {
                           acc[current.Division] = 0;
@@ -2122,7 +2224,6 @@ function App() {
                       // Calculate areas with overall degrowth
                       const areaTotals = allComparisonPlazas.reduce((acc, current) => {
                         const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                        if (!previous) return acc;
                         
                         if (!acc[current.Area]) {
                           acc[current.Area] = 0;
@@ -2239,7 +2340,6 @@ function App() {
                       {(() => {
                         const divisionSummary = filteredComparisonData.reduce((acc, current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                          if (!previous) return acc;
                           
                           if (!acc[current.Division]) {
                             acc[current.Division] = { growthQty: 0, degrowthQty: 0, amount: 0, previousTotal: 0, currentTotal: 0 };
@@ -2371,7 +2471,6 @@ function App() {
                       {(() => {
                         const areaSummary = filteredComparisonData.reduce((acc, current) => {
                           const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                          if (!previous) return acc;
                           
                           if (!acc[current.Area]) {
                             acc[current.Area] = { growthQty: 0, degrowthQty: 0, amount: 0, previousTotal: 0, currentTotal: 0 };
@@ -2513,11 +2612,10 @@ function App() {
                   const exportData = filteredComparisonData
                     .map((current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                      if (!previous) return null;
                       
                       const currentAch = current?.Total_Ach ?? 0;
                       const previousAch = previous?.Total_Ach ?? 0;
-                      const profitAch = current?.Profit_Ach ?? 0;
+                      const profitAch = current?.Net_Profit_Ach ?? 0;
                       const growthAmount = currentAch - previousAch;
                       const growthPercent = previousAch > 0 
                         ? ((growthAmount / previousAch) * 100).toFixed(2)
@@ -2534,7 +2632,6 @@ function App() {
                         'Growth %': parseFloat(growthPercent)
                       };
                     })
-                    .filter(Boolean)
                     .sort((a, b) => (a?.Plaza || '').localeCompare(b?.Plaza || ''));
 
                   const ws = XLSX.utils.json_to_sheet(exportData);
@@ -2596,7 +2693,6 @@ function App() {
                     .sort((a, b) => (a.Plaza || '').toString().localeCompare((b.Plaza || '').toString()))
                     .map((current) => {
                     const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                    if (!previous) return null;
                     
                     const currentAch = current?.Total_Ach ?? 0;
                     const previousAch = previous?.Total_Ach ?? 0;
@@ -2605,7 +2701,7 @@ function App() {
                       ? ((growthAmount / previousAch) * 100).toFixed(2)
                       : '0.00';
                     
-                    const profitAch = current?.Profit_Ach ?? 0;
+                    const profitAch = current?.Net_Profit_Ach ?? 0;
                     
                     return (
                       <tr key={current.Plaza}>
@@ -2634,7 +2730,7 @@ function App() {
                         </td>
                       </tr>
                     );
-                  }).filter(Boolean)}
+                  })}
                   
                   {/* Total Row */}
                   {filteredComparisonData.length > 0 && (() => {
@@ -2644,11 +2740,9 @@ function App() {
                     
                     filteredComparisonData.forEach((current) => {
                       const previous = previousYearData.find(p => p.Plaza === current.Plaza);
-                      if (previous) {
-                        totalPreviousAch += previous?.Total_Ach ?? 0;
-                        totalCurrentAch += current?.Total_Ach ?? 0;
-                        totalProfitAch += current?.Profit_Ach ?? 0;
-                      }
+                      totalPreviousAch += previous?.Total_Ach ?? 0;
+                      totalCurrentAch += current?.Total_Ach ?? 0;
+                      totalProfitAch += current?.Net_Profit_Ach ?? 0;
                     });
                     
                     const totalGrowthAmount = totalCurrentAch - totalPreviousAch;
@@ -2694,8 +2788,9 @@ function App() {
             )}
           </div>
         )}
-        </div>
-      </div>
+
+        </div> {/* End ach-content */}
+      </div> {/* End ach-section-container */}
 
       {/* ===== CURRENT MONTH ACHIEVEMENT SECTION ===== */}
       <div style={{
@@ -2932,7 +3027,7 @@ function App() {
                 p.Plaza?.toString().trim().toLowerCase() === t.PlazaName?.toString().trim().toLowerCase()
               );
               const ach = achRow ? (achRow.Total_Ach || 0) : null;
-              const profitAch = achRow ? (achRow.Profit_Ach || 0) : null;
+              const profitAch = achRow ? (achRow.Net_Profit_Ach || 0) : null;
               const prevAch = prevRow ? (prevRow.Total_Ach || 0) : null;
               const growthPct = (ach !== null && prevAch !== null && prevAch > 0)
                 ? ((ach - prevAch) / prevAch * 100)
@@ -2958,7 +3053,7 @@ function App() {
                 p.Plaza?.toString().trim().toLowerCase() === c.Plaza?.toString().trim().toLowerCase()
               );
               const ach = c.Total_Ach || 0;
-              const profitAch = c.Profit_Ach || 0;
+              const profitAch = c.Net_Profit_Ach || 0;
               const prevAch = prevRow ? (prevRow.Total_Ach || 0) : null;
               const growthPct = (prevAch !== null && prevAch > 0) ? ((ach - prevAch) / prevAch * 100) : null;
               return {
@@ -3263,6 +3358,265 @@ function App() {
       </div>
       {/* ===== END CURRENT MONTH ACHIEVEMENT SECTION ===== */}
 
+      {/* ===== RANKING ANALYSIS SECTION ===== */}
+      {currentYearData.length > 0 && (() => {
+        // Filter data
+        const rankingDivisions = [...new Set(currentYearData.map(d => d.Division))].sort();
+        const rankingAreas = [...new Set(
+          currentYearData.filter(d => !rankingDivisionFilter || d.Division === rankingDivisionFilter).map(d => d.Area)
+        )].sort();
+        const rankingFiltered = currentYearData.filter(d =>
+          (!rankingDivisionFilter || d.Division === rankingDivisionFilter) &&
+          (!rankingAreaFilter || d.Area === rankingAreaFilter)
+        );
+
+        // Get selected category
+        const selCat = rankingCategories.find(c => c.key === rankingSelectedCard) || rankingCategories[0];
+
+        // Helper to get field value
+        const gv = (d: any, field: string | null) => field ? (d[field] || 0) : 0;
+
+        // Card summaries (totals across all filtered plazas)
+        const cardSummaries = rankingCategories.map(cat => {
+          const totalTarget = rankingFiltered.reduce((s, d) => s + gv(d, cat.targetField), 0);
+          const totalAch = rankingFiltered.reduce((s, d) => s + gv(d, cat.achField), 0);
+          const totalMarks = rankingFiltered.reduce((s, d) => s + gv(d, cat.marksField), 0);
+          const achPct = cat.achPctField
+            ? (totalTarget > 0 ? (totalAch / totalTarget * 100) : 0)
+            : (rankingFiltered.length > 0 ? rankingFiltered.reduce((s, d) => s + gv(d, cat.achPctField), 0) / rankingFiltered.length : 0);
+          return { ...cat, totalTarget, totalAch, achPct, totalMarks };
+        });
+
+        // Build table rows based on view mode
+        const getGroupKey = (d: PlazaData) => {
+          if (rankingViewMode === 'division') return d.Division || 'Unknown';
+          if (rankingViewMode === 'area') return `${d.Division || 'Unknown'}|${d.Area || 'Unknown'}`;
+          return `${d.Division || 'Unknown'}|${d.Area || 'Unknown'}|${d.Plaza || 'Unknown'}`;
+        };
+
+        const groupedRows = rankingFiltered.reduce((acc, d) => {
+          const key = getGroupKey(d);
+          if (!acc[key]) {
+            acc[key] = {
+              Division: d.Division || 'Unknown',
+              Area: d.Area || 'Unknown',
+              Plaza: d.Plaza || 'Unknown',
+              target: 0, ach: 0, marks: 0, count: 0,
+              achPctSum: 0
+            };
+          }
+          acc[key].target += gv(d, selCat.targetField);
+          acc[key].ach += gv(d, selCat.achField);
+          acc[key].marks += gv(d, selCat.marksField);
+          acc[key].achPctSum += selCat.achPctField ? gv(d, selCat.achPctField) : 0;
+          acc[key].count += 1;
+          return acc;
+        }, {} as Record<string, any>);
+
+        const tableRows = Object.values(groupedRows).map((row: any) => ({
+          ...row,
+          achPct: selCat.achPctField
+            ? (row.target > 0 ? (row.ach / row.target * 100) : 0)
+            : (row.count > 0 ? row.achPctSum / row.count : 0)
+        }));
+
+        // Sort table rows
+        const sortedTableRows = (() => {
+          const dir = rankingSortDir === 'asc' ? 1 : -1;
+          return [...tableRows].sort((a, b) => {
+            let va: any, vb: any;
+            switch (rankingSortColumn) {
+              case 'name': va = (rankingViewMode === 'division' ? a.Division : rankingViewMode === 'area' ? a.Area : a.Plaza || '').toString().toLowerCase(); vb = (rankingViewMode === 'division' ? b.Division : rankingViewMode === 'area' ? b.Area : b.Plaza || '').toString().toLowerCase(); return va.localeCompare(vb);
+              case 'target': va = a.target; vb = b.target; break;
+              case 'ach': va = a.ach; vb = b.ach; break;
+              case 'achPct': va = a.achPct; vb = b.achPct; break;
+              case 'marks': va = a.marks; vb = b.marks; break;
+              default: va = a.marks; vb = b.marks;
+            }
+            return (va - vb) * dir;
+          });
+        })();
+
+        // Totals
+        const grandTarget = sortedTableRows.reduce((s, r) => s + r.target, 0);
+        const grandAch = sortedTableRows.reduce((s, r) => s + r.ach, 0);
+        const grandMarks = sortedTableRows.reduce((s, r) => s + r.marks, 0);
+        const grandAchPct = selCat.achPctField ? (grandTarget > 0 ? (grandAch / grandTarget * 100) : 0) : 0;
+
+        const handleRankingSort = (col: string) => {
+          if (rankingSortColumn === col) { setRankingSortDir(rankingSortDir === 'asc' ? 'desc' : 'asc'); }
+          else { setRankingSortColumn(col); setRankingSortDir('desc'); }
+        };
+        const sortIndicator = (col: string) => rankingSortColumn === col ? (rankingSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
+        const pctColor = (pct: number) => pct >= 100 ? '#28a745' : pct >= 80 ? '#ff9800' : '#dc3545';
+
+        return (
+          <div style={{ background: 'white', marginBottom: '30px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            {/* Collapsible Header */}
+            <div
+              onClick={() => setIsRankingSectionOpen(!isRankingSectionOpen)}
+              style={{
+                padding: '20px 30px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                transition: 'opacity 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+              onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+            >
+              <div>
+                <h2 style={{ margin: '0 0 5px 0', color: 'white', fontSize: '24px' }}>🏆 Ranking Analysis</h2>
+                <p style={{ color: 'rgba(255,255,255,0.9)', margin: 0, fontSize: '14px' }}>
+                  {isRankingSectionOpen
+                    ? 'Performance ranking across all criteria — click any card to see detailed breakdown'
+                    : 'Click to expand performance ranking across all criteria'}
+                </p>
+              </div>
+              <div style={{
+                fontSize: '28px',
+                color: 'white',
+                transform: isRankingSectionOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.3s ease',
+                lineHeight: 1
+              }}>
+                ▼
+              </div>
+            </div>
+
+            {/* Collapsible Body */}
+            {isRankingSectionOpen && (
+            <div style={{ padding: '25px' }}>
+              {/* 20 Category Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px', marginBottom: '25px' }}>
+                {cardSummaries.map(cat => {
+                  const isSelected = rankingSelectedCard === cat.key;
+                  return (
+                    <div
+                      key={cat.key}
+                      onClick={() => setRankingSelectedCard(cat.key)}
+                      style={{
+                        padding: '14px',
+                        borderRadius: '8px',
+                        border: isSelected ? '2px solid #667eea' : '1px solid #e0e0e0',
+                        background: isSelected ? 'linear-gradient(135deg, #f0f0ff 0%, #e8e0ff 100%)' : '#fafafa',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: isSelected ? '0 3px 10px rgba(102,126,234,0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
+                      }}
+                    >
+                      <div style={{ fontSize: '12px', fontWeight: '700', color: isSelected ? '#667eea' : '#555', marginBottom: '8px', lineHeight: '1.3' }}>
+                        {cat.label}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '11px' }}>
+                        <div><span style={{ color: '#999' }}>Target:</span> <b>{(cat.totalTarget / 1000).toFixed(0)}K</b></div>
+                        <div><span style={{ color: '#999' }}>Ach:</span> <b>{(cat.totalAch / 1000).toFixed(0)}K</b></div>
+                        <div><span style={{ color: '#999' }}>Ach%:</span> <b style={{ color: pctColor(cat.achPct) }}>{cat.achPct.toFixed(1)}%</b></div>
+                        <div><span style={{ color: '#999' }}>Marks:</span> <b style={{ color: '#667eea' }}>{cat.totalMarks.toFixed(1)}</b></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* View Mode + Filters */}
+              <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
+                {/* View Mode Buttons */}
+                <div style={{ display: 'flex', gap: '4px', background: '#f0f0f0', borderRadius: '6px', padding: '3px' }}>
+                  {(['division', 'area', 'plaza'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => { setRankingViewMode(mode); setRankingAreaFilter(''); }}
+                      style={{
+                        padding: '7px 16px', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+                        background: rankingViewMode === mode ? '#667eea' : 'transparent',
+                        color: rankingViewMode === mode ? 'white' : '#666',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {mode === 'division' ? '📊 Division' : mode === 'area' ? '📍 Area' : '🏢 Plaza'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Division Filter */}
+                <select value={rankingDivisionFilter} onChange={(e) => { setRankingDivisionFilter(e.target.value); setRankingAreaFilter(''); }}
+                  style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px', minWidth: '160px' }}>
+                  <option value="">All Divisions</option>
+                  {rankingDivisions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+
+                {/* Area Filter */}
+                <select value={rankingAreaFilter} onChange={(e) => setRankingAreaFilter(e.target.value)}
+                  style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px', minWidth: '160px' }}>
+                  <option value="">All Areas</option>
+                  {rankingAreas.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+
+                {/* Selected Category Label */}
+                <div style={{ padding: '7px 14px', background: '#667eea', color: 'white', borderRadius: '6px', fontSize: '13px', fontWeight: '600' }}>
+                  📋 {selCat.label}
+                </div>
+              </div>
+
+              {/* Ranking Table */}
+              <div style={{ overflowX: 'auto', border: '1px solid #e0e0e0', borderRadius: '8px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                      {rankingViewMode === 'plaza' && <th style={{ padding: '10px 12px', textAlign: 'left', cursor: 'pointer' }} onClick={() => handleRankingSort('name')}>Plaza{sortIndicator('name')}</th>}
+                      {rankingViewMode === 'area' && <><th style={{ padding: '10px 12px', textAlign: 'left' }}>Division</th><th style={{ padding: '10px 12px', textAlign: 'left', cursor: 'pointer' }} onClick={() => handleRankingSort('name')}>Area{sortIndicator('name')}</th></>}
+                      {rankingViewMode === 'division' && <th style={{ padding: '10px 12px', textAlign: 'left', cursor: 'pointer' }} onClick={() => handleRankingSort('name')}>Division{sortIndicator('name')}</th>}
+                      <th style={{ padding: '10px 12px', textAlign: 'right', cursor: 'pointer' }} onClick={() => handleRankingSort('target')}>Target{sortIndicator('target')}</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right', cursor: 'pointer' }} onClick={() => handleRankingSort('ach')}>Ach{sortIndicator('ach')}</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right', cursor: 'pointer' }} onClick={() => handleRankingSort('achPct')}>Ach %{sortIndicator('achPct')}</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right', cursor: 'pointer' }} onClick={() => handleRankingSort('marks')}>Marks{sortIndicator('marks')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedTableRows.map((row, idx) => (
+                      <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#f8f9fa', borderBottom: '1px solid #eee' }}>
+                        {rankingViewMode === 'plaza' && <>
+                          <td style={{ padding: '8px 12px' }}><b>{row.Division}</b> / <b>{row.Area}</b> / {row.Plaza}</td>
+                        </>}
+                        {rankingViewMode === 'area' && <>
+                          <td style={{ padding: '8px 12px' }}>{row.Division}</td>
+                          <td style={{ padding: '8px 12px', fontWeight: '600' }}>{row.Area}</td>
+                        </>}
+                        {rankingViewMode === 'division' && <>
+                          <td style={{ padding: '8px 12px', fontWeight: '600' }}>{row.Division}</td>
+                        </>}
+                        <td style={{ padding: '8px 12px', textAlign: 'right' }}>{row.target.toLocaleString()}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right' }}>{row.ach.toLocaleString()}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '600', color: pctColor(row.achPct) }}>
+                          {row.achPct.toFixed(2)}%
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: '#667eea' }}>{row.marks.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#2c3e50', color: 'white', fontWeight: 'bold' }}>
+                      <td style={{ padding: '10px 12px' }} colSpan={rankingViewMode === 'plaza' || rankingViewMode === 'area' ? 1 : 1}>TOTAL</td>
+                      {rankingViewMode === 'area' && <td style={{ padding: '10px 12px' }}></td>}
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{grandTarget.toLocaleString()}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>{grandAch.toLocaleString()}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#4ade80' }}>{grandAchPct.toFixed(2)}%</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#a5b4fc' }}>{grandMarks.toFixed(1)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+            )}
+          </div>
+        );
+      })()}
+      {/* ===== END RANKING ANALYSIS SECTION ===== */}
+
       {/* Hide old performance dashboard details
       {fullData.length > 0 && (
         <>
@@ -3558,7 +3912,7 @@ function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <span style={{ fontSize: '12px', color: '#888' }}>Ach:</span>
                   <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
-                    {filteredData.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0).toLocaleString()}
+                    {filteredData.reduce((sum, d) => sum + (d.Net_Profit_Ach || 0), 0).toLocaleString()}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -3566,7 +3920,7 @@ function App() {
                   <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#28a745' }}>
                     {(() => {
                       const target = filteredData.reduce((sum, d) => sum + (d.Profit_Target || 0), 0);
-                      const ach = filteredData.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0);
+                      const ach = filteredData.reduce((sum, d) => sum + (d.Net_Profit_Ach || 0), 0);
                       return target > 0 ? ((ach / target) * 100).toFixed(2) : '0.00';
                     })()}%
                   </span>
@@ -3605,8 +3959,8 @@ function App() {
                   <td>{(d.Hire_Sales_Ach || 0).toLocaleString()}</td>
                   <td>{(d.Hire_Sales_Ach_Pct || 0).toFixed(2)}%</td>
                   <td>{(d.Profit_Target || 0).toLocaleString()}</td>
-                  <td>{(d.Profit_Ach || 0).toLocaleString()}</td>
-                  <td>{(d.Profit_Ach_Pct || 0).toFixed(2)}%</td>
+                  <td>{(d.Net_Profit_Ach || 0).toLocaleString()}</td>
+                  <td>{(d.Net_Profit_Ach_Pct || 0).toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>
@@ -3718,8 +4072,8 @@ function App() {
                       <td>{(d.Dealer_Corp_Col_Ach || 0).toLocaleString()}</td>
                       <td>{(d.Dealer_Corp_Col_Ach_Pct || 0).toFixed(2)}%</td>
                       <td>{(d.Profit_Target || 0).toLocaleString()}</td>
-                      <td>{(d.Profit_Ach || 0).toLocaleString()}</td>
-                      <td>{(d.Profit_Ach_Pct || 0).toFixed(2)}%</td>
+                      <td>{(d.Net_Profit_Ach || 0).toLocaleString()}</td>
+                      <td>{(d.Net_Profit_Ach_Pct || 0).toFixed(2)}%</td>
                     </tr>
                   ))}
                   <tr style={{ background: '#2c3e50', color: 'white', fontWeight: 'bold' }}>
@@ -3752,8 +4106,8 @@ function App() {
                     <td>{filteredData.reduce((sum, d) => sum + (d.Dealer_Corp_Col_Ach || 0), 0).toLocaleString()}</td>
                     <td>{(filteredData.reduce((sum, d) => sum + (d.Dealer_Corp_Col_Ach_Pct || 0), 0) / filteredData.length).toFixed(2)}%</td>
                     <td>{filteredData.reduce((sum, d) => sum + (d.Profit_Target || 0), 0).toLocaleString()}</td>
-                    <td>{filteredData.reduce((sum, d) => sum + (d.Profit_Ach || 0), 0).toLocaleString()}</td>
-                    <td>{(filteredData.reduce((sum, d) => sum + (d.Profit_Ach_Pct || 0), 0) / filteredData.length).toFixed(2)}%</td>
+                    <td>{filteredData.reduce((sum, d) => sum + (d.Net_Profit_Ach || 0), 0).toLocaleString()}</td>
+                    <td>{(filteredData.reduce((sum, d) => sum + (d.Net_Profit_Ach_Pct || 0), 0) / filteredData.length).toFixed(2)}%</td>
                   </tr>
                 </tbody>
               </table>
@@ -3794,22 +4148,22 @@ function App() {
 
           <div style={{ marginTop: '30px' }}>
             <h2 style={{ marginBottom: '15px', color: '#dc3545' }}>
-              Loss Plaza List ({fullData.filter((d) => (d.Profit_Ach || 0) < 0).length} out of {fullData.length} Plazas)
+              Loss Plaza List ({fullData.filter((d) => (d.Net_Profit_Ach || 0) < 0).length} out of {fullData.length} Plazas)
             </h2>
             
-            {fullData.filter((d) => (d.Profit_Ach || 0) < 0).length > 0 && (
+            {fullData.filter((d) => (d.Net_Profit_Ach || 0) < 0).length > 0 && (
               <>
                 <div style={{ marginBottom: '20px' }}>
                   <h3 style={{ marginBottom: '10px' }}>Loss Summary by Division</h3>
                   <div className="degrowth-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '20px' }}>
                     {(() => {
-                      const lossPlazas = fullData.filter((d) => (d.Profit_Ach || 0) < 0);
+                      const lossPlazas = fullData.filter((d) => (d.Net_Profit_Ach || 0) < 0);
                       const divisionSummary = lossPlazas.reduce((acc, d) => {
                         if (!acc[d.Division]) {
                           acc[d.Division] = { qty: 0, amount: 0 };
                         }
                         acc[d.Division].qty += 1;
-                        acc[d.Division].amount += d.Profit_Ach || 0;
+                        acc[d.Division].amount += d.Net_Profit_Ach || 0;
                         return acc;
                       }, {} as Record<string, { qty: number; amount: number }>);
 
@@ -3838,13 +4192,13 @@ function App() {
                   <h3 style={{ marginBottom: '10px' }}>Loss Summary by Area</h3>
                   <div className="degrowth-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginBottom: '20px' }}>
                     {(() => {
-                      const lossPlazas = fullData.filter((d) => (d.Profit_Ach || 0) < 0);
+                      const lossPlazas = fullData.filter((d) => (d.Net_Profit_Ach || 0) < 0);
                       const areaSummary = lossPlazas.reduce((acc, d) => {
                         if (!acc[d.Area]) {
                           acc[d.Area] = { qty: 0, amount: 0 };
                         }
                         acc[d.Area].qty += 1;
-                        acc[d.Area].amount += d.Profit_Ach || 0;
+                        acc[d.Area].amount += d.Net_Profit_Ach || 0;
                         return acc;
                       }, {} as Record<string, { qty: number; amount: number }>);
 
@@ -3884,18 +4238,18 @@ function App() {
                 </thead>
                 <tbody>
                   {fullData
-                    .filter((d) => (d.Profit_Ach || 0) < 0)
+                    .filter((d) => (d.Net_Profit_Ach || 0) < 0)
                     .map((d, idx) => (
                       <tr key={idx} style={{ background: '#fff5f5' }}>
                         <td>{d.Division}</td>
                         <td>{d.Area}</td>
                         <td>{d.Plaza}</td>
                         <td style={{ color: '#dc3545', fontWeight: 'bold' }}>
-                          {(d.Profit_Ach || 0).toLocaleString()}
+                          {(d.Net_Profit_Ach || 0).toLocaleString()}
                         </td>
                       </tr>
                     ))}
-                  {fullData.filter((d) => (d.Profit_Ach || 0) < 0).length === 0 && (
+                  {fullData.filter((d) => (d.Net_Profit_Ach || 0) < 0).length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: 'center', padding: '20px', color: '#28a745' }}>
                         No loss plazas found! All plazas are profitable. 🎉
@@ -4155,7 +4509,7 @@ function App() {
                         const areaAchPct = areaBaseTarget > 0 ? ((areaAch / areaBaseTarget) * 100).toFixed(2) : '0.00';
                         const areaSlab1AchPct = areaSlab1Target > 0 ? ((areaAch / areaSlab1Target) * 100).toFixed(2) : '0.00';
                         const areaSlab2AchPct = areaSlab2Target > 0 ? ((areaAch / areaSlab2Target) * 100).toFixed(2) : '0.00';
-                        const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+                        const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
 
                         return (
                           <React.Fragment key={areaIdx}>
@@ -4167,7 +4521,7 @@ function App() {
                               const achPct = baseTarget > 0 ? ((ach / baseTarget) * 100).toFixed(2) : '0.00';
                               const slab1AchPct = slab1Target > 0 ? ((ach / slab1Target) * 100).toFixed(2) : '0.00';
                               const slab2AchPct = slab2Target > 0 ? ((ach / slab2Target) * 100).toFixed(2) : '0.00';
-                              const profit = plaza.Profit_Ach || 0;
+                              const profit = plaza.Net_Profit_Ach || 0;
 
                               return (
                                 <tr key={plazaIdx} style={{ 
@@ -4260,7 +4614,7 @@ function App() {
                         const grandTotalAchPct = grandTotalBaseTarget > 0 ? ((grandTotalAch / grandTotalBaseTarget) * 100).toFixed(2) : '0.00';
                         const grandTotalSlab1AchPct = grandTotalSlab1Target > 0 ? ((grandTotalAch / grandTotalSlab1Target) * 100).toFixed(2) : '0.00';
                         const grandTotalSlab2AchPct = grandTotalSlab2Target > 0 ? ((grandTotalAch / grandTotalSlab2Target) * 100).toFixed(2) : '0.00';
-                        const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Profit_Ach || 0), 0);
+                        const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
 
                         return (
                           <tr style={{ 
