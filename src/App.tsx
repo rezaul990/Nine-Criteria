@@ -205,6 +205,26 @@ function App() {
     { key: 'IT', label: 'IT Sales', targetField: 'IT_Sales_Target', achField: 'IT_Sales_Ach', achPctField: 'IT_Sales_Ach_Pct', marksField: 'IT_Sales_Marks' },
   ];
 
+  // Password protection
+  const CORRECT_PASSWORD = '4452';
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('ranking_app_auth') === 'verified';
+  });
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === CORRECT_PASSWORD) {
+      localStorage.setItem('ranking_app_auth', 'verified');
+      setIsAuthenticated(true);
+      setPasswordError('');
+    } else {
+      setPasswordError('Incorrect password. Please try again.');
+      setPasswordInput('');
+    }
+  };
+
   // Firebase sync state
   const [isSavingTarget, setIsSavingTarget] = useState(false);
   const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
@@ -1309,18 +1329,11 @@ function App() {
       await deleteBatch.commit();
 
       const BATCH_SIZE = 400;
-      const cleanRows = rows.map(r => ({
-        Rank_No: r.Rank_No || 0,
-        Plaza: r.Plaza || '',
-        Area: r.Area || '',
-        Division: r.Division || '',
-        Total_Marks: r.Total_Marks || 0,
-        Achv_Pct: r.Achv_Pct || 0,
-        Profit_Achv: r.Profit_Achv || 0,
-        Total_Target: r.Total_Target || 0,
-        Total_Ach: r.Total_Ach || 0,
-        Net_Profit_Ach: r.Net_Profit_Ach || 0,
-      }));
+      const cleanRows = rows.map(r => {
+        const { allColumns, ...rest } = r;
+        // Remove undefined values for Firestore compatibility
+        return Object.fromEntries(Object.entries(rest).filter(([_, v]) => v !== undefined));
+      });
 
       for (let i = 0; i < cleanRows.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
@@ -1357,19 +1370,10 @@ function App() {
       await deleteBatch.commit();
 
       const BATCH_SIZE = 400;
-      // Filter out allColumns and just save needed keys to prevent size issues
-      const cleanRows = rows.map(r => ({
-        Rank_No: r.Rank_No || 0,
-        Plaza: r.Plaza || '',
-        Area: r.Area || '',
-        Division: r.Division || '',
-        Total_Marks: r.Total_Marks || 0,
-        Achv_Pct: r.Achv_Pct || 0,
-        Profit_Achv: r.Profit_Achv || 0,
-        Total_Target: r.Total_Target || 0,
-        Total_Ach: r.Total_Ach || 0,
-        Net_Profit_Ach: r.Net_Profit_Ach || 0,
-      }));
+      const cleanRows = rows.map(r => {
+        const { allColumns, ...rest } = r;
+        return Object.fromEntries(Object.entries(rest).filter(([_, v]) => v !== undefined));
+      });
 
       for (let i = 0; i < cleanRows.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
@@ -1533,6 +1537,89 @@ function App() {
     (!comparisonAreaFilter || d.Area === comparisonAreaFilter) &&
     (!comparisonPlazaFilter || d.Plaza === comparisonPlazaFilter)
   );
+
+  // Password gate
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+      }}>
+        <div style={{
+          background: 'white',
+          padding: '50px 40px',
+          borderRadius: '16px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          width: '100%',
+          maxWidth: '400px',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '70px',
+            height: '70px',
+            margin: '0 auto 20px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '32px'
+          }}>\uD83D\uDD12</div>
+          <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#333' }}>Ranking Analysis</h1>
+          <p style={{ color: '#888', margin: '0 0 30px 0', fontSize: '14px' }}>Enter password to access the dashboard</p>
+          <form onSubmit={handlePasswordSubmit}>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(''); }}
+              placeholder="Enter password"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '14px 16px',
+                fontSize: '16px',
+                border: passwordError ? '2px solid #dc3545' : '2px solid #e0e0e0',
+                borderRadius: '10px',
+                outline: 'none',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.2s',
+                marginBottom: passwordError ? '8px' : '0'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#667eea'}
+              onBlur={(e) => e.target.style.borderColor = passwordError ? '#dc3545' : '#e0e0e0'}
+            />
+            {passwordError && (
+              <p style={{ color: '#dc3545', fontSize: '13px', margin: '0 0 12px 0', textAlign: 'left' }}>{passwordError}</p>
+            )}
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '14px',
+                fontSize: '16px',
+                fontWeight: '600',
+                color: 'white',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                marginTop: '12px',
+                transition: 'opacity 0.2s'
+              }}
+              onMouseOver={(e) => (e.target as HTMLButtonElement).style.opacity = '0.9'}
+              onMouseOut={(e) => (e.target as HTMLButtonElement).style.opacity = '1'}
+            >
+              Unlock Dashboard
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
