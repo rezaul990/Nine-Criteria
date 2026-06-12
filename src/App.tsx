@@ -69,6 +69,9 @@ interface PlazaData {
 }
 
 function App() {
+  // Firestore collection prefix for old-version branch (keeps data separate from main)
+  const CP = 'old_';
+
   const [fullData, setFullData] = useState<PlazaData[]>([]);
   const [filteredData, setFilteredData] = useState<PlazaData[]>([]);
   const [divisionFilter, setDivisionFilter] = useState('');
@@ -138,13 +141,13 @@ function App() {
     const loadSavedPrevious = async () => {
       setIsLoadingPrevious(true);
       try {
-        const q = query(collection(db, 'previous_month_data'));
+        const q = query(collection(db, `${CP}previous_month_data`));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           const rows = snapshot.docs.map(d => d.data() as PlazaData);
           setPreviousYearData(rows);
           try {
-            const metaSnap = await getDocs(collection(db, 'previous_month_meta'));
+            const metaSnap = await getDocs(collection(db, `${CP}previous_month_meta`));
             if (!metaSnap.empty) {
               setPreviousUploadedAt(metaSnap.docs[0].data().updatedAt || '');
             }
@@ -165,13 +168,13 @@ function App() {
     const loadSavedCurrent = async () => {
       setIsLoadingCurrent(true);
       try {
-        const q = query(collection(db, 'current_month_data'));
+        const q = query(collection(db, `${CP}current_month_data`));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           const rows = snapshot.docs.map(d => d.data() as PlazaData);
           setCurrentYearData(rows);
           try {
-            const metaSnap = await getDocs(collection(db, 'current_month_meta'));
+            const metaSnap = await getDocs(collection(db, `${CP}current_month_meta`));
             if (!metaSnap.empty) {
               setCurrentUploadedAt(metaSnap.docs[0].data().updatedAt || '');
             }
@@ -192,14 +195,14 @@ function App() {
     const loadSavedTarget = async () => {
       setIsLoadingTarget(true);
       try {
-        const q = query(collection(db, 'monthly_targets'), orderBy('Division'));
+        const q = query(collection(db, `${CP}monthly_targets`), orderBy('Division'));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
           const rows = snapshot.docs.map(d => d.data() as TargetRow);
           setMonthlyTargetData(rows);
           // Try to get saved month label and timestamp from meta doc
           try {
-            const metaSnap = await getDocs(collection(db, 'monthly_targets_meta'));
+            const metaSnap = await getDocs(collection(db, `${CP}monthly_targets_meta`));
             if (!metaSnap.empty) {
               setSavedMonthLabel(metaSnap.docs[0].data().monthLabel || '');
               setTargetUploadedAt(metaSnap.docs[0].data().updatedAt || '');
@@ -1044,7 +1047,7 @@ function App() {
     setSaveStatus('saving');
     try {
       // Delete existing docs first, then batch write new ones
-      const existingSnap = await getDocs(collection(db, 'monthly_targets'));
+      const existingSnap = await getDocs(collection(db, `${CP}monthly_targets`));
       const deleteBatch = writeBatch(db);
       existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
       await deleteBatch.commit();
@@ -1055,14 +1058,14 @@ function App() {
         const batch = writeBatch(db);
         rows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
           const docId = `${row.PlazaName.replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
-          batch.set(doc(db, 'monthly_targets', docId), row);
+          batch.set(doc(db, `${CP}monthly_targets`, docId), row);
         });
         await batch.commit();
       }
 
       const timestamp = new Date().toLocaleString();
       // Save month label meta
-      await setDoc(doc(db, 'monthly_targets_meta', 'current'), {
+      await setDoc(doc(db, `${CP}monthly_targets_meta`, 'current'), {
         monthLabel,
         updatedAt: timestamp,
         rowCount: rows.length,
@@ -1085,7 +1088,7 @@ function App() {
   const saveCurrentToFirestore = async (rows: PlazaData[]) => {
     setSaveCurrentStatus('saving');
     try {
-      const existingSnap = await getDocs(collection(db, 'current_month_data'));
+      const existingSnap = await getDocs(collection(db, `${CP}current_month_data`));
       const deleteBatch = writeBatch(db);
       existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
       await deleteBatch.commit();
@@ -1108,13 +1111,13 @@ function App() {
         const batch = writeBatch(db);
         cleanRows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
           const docId = `${(row.Plaza || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
-          batch.set(doc(db, 'current_month_data', docId), row);
+          batch.set(doc(db, `${CP}current_month_data`, docId), row);
         });
         await batch.commit();
       }
 
       const timestamp = new Date().toLocaleString();
-      await setDoc(doc(db, 'current_month_meta', 'current'), {
+      await setDoc(doc(db, `${CP}current_month_meta`, 'current'), {
         updatedAt: timestamp,
         rowCount: rows.length,
       });
@@ -1133,7 +1136,7 @@ function App() {
   const savePreviousToFirestore = async (rows: PlazaData[]) => {
     setSavePreviousStatus('saving');
     try {
-      const existingSnap = await getDocs(collection(db, 'previous_month_data'));
+      const existingSnap = await getDocs(collection(db, `${CP}previous_month_data`));
       const deleteBatch = writeBatch(db);
       existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
       await deleteBatch.commit();
@@ -1157,13 +1160,13 @@ function App() {
         const batch = writeBatch(db);
         cleanRows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
           const docId = `${(row.Plaza || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
-          batch.set(doc(db, 'previous_month_data', docId), row);
+          batch.set(doc(db, `${CP}previous_month_data`, docId), row);
         });
         await batch.commit();
       }
 
       const timestamp = new Date().toLocaleString();
-      await setDoc(doc(db, 'previous_month_meta', 'previous'), {
+      await setDoc(doc(db, `${CP}previous_month_meta`, 'previous'), {
         updatedAt: timestamp,
         rowCount: rows.length,
       });
@@ -1182,7 +1185,7 @@ function App() {
   const clearFirestorePrevious = async () => {
     if (!confirm('Are you sure you want to clear the saved previous month data from the database?')) return;
     try {
-      const snap = await getDocs(collection(db, 'previous_month_data'));
+      const snap = await getDocs(collection(db, `${CP}previous_month_data`));
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
@@ -1197,12 +1200,12 @@ function App() {
   const clearFirestoreCurrent = async () => {
     if (!confirm('Are you sure you want to clear the saved current year data from the database?')) return;
     try {
-      const snap = await getDocs(collection(db, 'current_month_data'));
+      const snap = await getDocs(collection(db, `${CP}current_month_data`));
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
       
-      const metaSnap = await getDocs(collection(db, 'current_month_meta'));
+      const metaSnap = await getDocs(collection(db, `${CP}current_month_meta`));
       const mb = writeBatch(db);
       metaSnap.docs.forEach(d => mb.delete(d.ref));
       await mb.commit();
@@ -1220,11 +1223,11 @@ function App() {
   const clearFirestoreTarget = async () => {
     if (!confirm('Are you sure you want to clear the saved target data from the database?')) return;
     try {
-      const snap = await getDocs(collection(db, 'monthly_targets'));
+      const snap = await getDocs(collection(db, `${CP}monthly_targets`));
       const batch = writeBatch(db);
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
-      const metaSnap = await getDocs(collection(db, 'monthly_targets_meta'));
+      const metaSnap = await getDocs(collection(db, `${CP}monthly_targets_meta`));
       const mb = writeBatch(db);
       metaSnap.docs.forEach(d => mb.delete(d.ref));
       await mb.commit();
@@ -2913,6 +2916,41 @@ function App() {
               const slab2AchPct = (ach !== null && t.Slab2Target > 0) ? (ach / t.Slab2Target * 100) : null;
               return { ...t, ach, profitAch, prevAch, growthPct, baseAchPct, slab1AchPct, slab2AchPct };
             });
+
+            // Add plazas from currentYearData that don't have a target entry
+            const targetPlazaNames = new Set(filteredTarget.map(t => t.PlazaName?.toString().trim().toLowerCase()));
+            const unmatchedCurrent = currentYearData
+              .filter(c => {
+                const name = c.Plaza?.toString().trim().toLowerCase();
+                return name && !targetPlazaNames.has(name) && (c.Total_Ach > 0) &&
+                  (!targetDivisionFilter || c.Division === targetDivisionFilter) &&
+                  (!targetAreaFilter || c.Area === targetAreaFilter);
+              })
+              .map(c => {
+                const prevRow = previousYearData.find(p =>
+                  p.Plaza?.toString().trim().toLowerCase() === c.Plaza?.toString().trim().toLowerCase()
+                );
+                const ach = c.Total_Ach || 0;
+                const profitAch = c.Profit_Ach || 0;
+                const prevAch = prevRow ? (prevRow.Total_Ach || 0) : null;
+                const growthPct = (prevAch !== null && prevAch > 0) ? ((ach - prevAch) / prevAch * 100) : null;
+                return {
+                  PlazaName: c.Plaza,
+                  Division: c.Division || 'Unknown',
+                  Area: c.Area || 'Unknown',
+                  BaseTarget: 0,
+                  Slab1Target: 0,
+                  Slab2Target: 0,
+                  ach,
+                  profitAch,
+                  prevAch,
+                  growthPct,
+                  baseAchPct: null,
+                  slab1AchPct: null,
+                  slab2AchPct: null,
+                };
+              });
+            enriched.push(...unmatchedCurrent);
 
             // Compute aggregated data
             const divisionWiseData = Object.values(enriched.reduce((acc, row) => {
