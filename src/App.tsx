@@ -3098,6 +3098,53 @@ function App() {
                   ))}
                 </div>
 
+                {/* Download Excel Button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+                  <button
+                    onClick={() => {
+                      const dataToExport = targetViewMode === 'division' ? divisionWiseData : targetViewMode === 'area' ? areaWiseData : enriched;
+                      const rows = dataToExport.map((row: any) => {
+                        const obj: Record<string, any> = {};
+                        obj['Division'] = row.Division;
+                        if (targetViewMode === 'area' || targetViewMode === 'plaza') obj['Area'] = row.Area;
+                        if (targetViewMode === 'plaza') obj['Plaza Name'] = row.PlazaName;
+                        if (targetViewMode !== 'plaza') obj['Plaza Count'] = row.plazaCount;
+                        obj['Achievement'] = row.ach ?? 0;
+                        obj['Profit Ach'] = row.profitAch ?? 0;
+                        obj['Growth %'] = row.growthPct != null ? parseFloat(row.growthPct.toFixed(2)) : '';
+                        obj['Base Target'] = row.BaseTarget ?? 0;
+                        obj['Base Ach %'] = row.baseAchPct != null ? parseFloat(row.baseAchPct.toFixed(2)) : '';
+                        obj['Slab-1 Target'] = row.Slab1Target ?? 0;
+                        obj['Slab-1 Ach %'] = row.slab1AchPct != null ? parseFloat(row.slab1AchPct.toFixed(2)) : '';
+                        obj['Slab-2 Target'] = row.Slab2Target ?? 0;
+                        obj['Slab-2 Ach %'] = row.slab2AchPct != null ? parseFloat(row.slab2AchPct.toFixed(2)) : '';
+                        return obj;
+                      });
+                      const ws = XLSX.utils.json_to_sheet(rows);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, 'Achievement');
+                      const label = targetViewMode === 'division' ? 'Division_Wise' : targetViewMode === 'area' ? 'Area_Wise' : 'Plaza_Wise';
+                      XLSX.writeFile(wb, `Current_Month_Achievement_${label}.xlsx`);
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(17,153,142,0.3)'
+                    }}
+                  >
+                    📥 Download Excel ({targetViewMode === 'division' ? 'Division' : targetViewMode === 'area' ? 'Area' : 'Plaza'})
+                  </button>
+                </div>
+
                 {/* Table */}
                 <div className="table-scroll" style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
