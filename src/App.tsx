@@ -157,26 +157,27 @@ function App() {
     Area: string;
     PlazaName: string;
     BaseTarget: number;
-    Slab1Target: number;
-    Slab2Target: number;
+    Targets: number[];
   }
   const [monthlyTargetData, setMonthlyTargetData] = useState<TargetRow[]>([]);
   const [isDraggingTarget, setIsDraggingTarget] = useState(false);
   const [targetDivisionFilter, setTargetDivisionFilter] = useState('');
   const [targetAreaFilter, setTargetAreaFilter] = useState('');
-  // Which target column to highlight: 'base' | 'slab1' | 'slab2'
-  const [activeTargetSlab, setActiveTargetSlab] = useState<'base'|'slab1'|'slab2'>('base');
-  // View mode for target table
+  const [activeTargetSlab, setActiveTargetSlab] = useState<number>(-1);
   const [targetViewMode, setTargetViewMode] = useState<'division'|'area'|'plaza'>('area');
+  const [targetLabels, setTargetLabels] = useState<string[]>(['Target-1 (350 Cr)','Target-2 (400 Cr)','Target-3 (440 Cr)','Target-4 (480 Cr)','Target-5 (520 Cr)','Target-6 (560 Cr)','Target-7 (600 Cr)']);
+  const [showRemaining, setShowRemaining] = useState<Record<string, boolean>>({});
   // Sorting for target table
   const [targetSortColumn, setTargetSortColumn] = useState<string>('');
   const [targetSortDir, setTargetSortDir] = useState<'asc'|'desc'>('desc');
 
   // Ranking Analysis states
   const [isRankingSectionOpen, setIsRankingSectionOpen] = useState(false);
+  const [isDivision2Open, setIsDivision2Open] = useState(false);
   const [rankingViewMode, setRankingViewMode] = useState<'division'|'area'|'plaza'>('area');
   const [rankingDivisionFilter, setRankingDivisionFilter] = useState('');
   const [rankingAreaFilter, setRankingAreaFilter] = useState('');
+  const [rankingPlazaFilter, setRankingPlazaFilter] = useState('');
   const [rankingSelectedCard, setRankingSelectedCard] = useState('Total');
   const [rankingSortColumn, setRankingSortColumn] = useState<string>('marks');
   const [rankingSortDir, setRankingSortDir] = useState<'asc'|'desc'>('desc');
@@ -984,59 +985,52 @@ function App() {
       
       // Add plaza rows
       areaPlazas.forEach(plaza => {
-        const baseTarget = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.BaseTarget || 0;
-        const slab1Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab1Target || 0;
-        const slab2Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab2Target || 0;
+        const targetRow = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza);
+        const baseTarget = targetRow?.BaseTarget || 0;
+        const targets = targetRow?.Targets || [];
         const ach = plaza.Total_Ach || 0;
         const achPct = baseTarget > 0 ? ((ach / baseTarget) * 100).toFixed(2) : '0.00';
-        const slab1AchPct = slab1Target > 0 ? ((ach / slab1Target) * 100).toFixed(2) : '0.00';
-        const slab2AchPct = slab2Target > 0 ? ((ach / slab2Target) * 100).toFixed(2) : '0.00';
         
-        exportData.push({
+        const row: any = {
           'Area': area,
           'Plaza Name': plaza.Plaza,
           'Base Target': baseTarget,
           'Ach': ach,
           'Ach %': achPct + '%',
-          'Slab-1 Target': slab1Target,
-          'Slab-1 Ach %': slab1AchPct + '%',
-          'Slab-2 Target': slab2Target,
-          'Slab-2 Ach %': slab2AchPct + '%',
-          'Profit Ach': plaza.Net_Profit_Ach || 0,
+        };
+        targets.forEach((t, i) => {
+          const tAchPct = t > 0 ? ((ach / t) * 100).toFixed(2) : '0.00';
+          row[`${targetLabels[i] || 'Target-' + (i+1)} Target`] = t;
+          row[`${targetLabels[i] || 'Target-' + (i+1)} Ach %`] = tAchPct + '%';
         });
+        row['Profit Ach'] = plaza.Net_Profit_Ach || 0;
+        exportData.push(row);
       });
       
       // Add area subtotal
       const areaBaseTarget = areaPlazas.reduce((sum, p) => {
-        const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
-        return sum + target;
+        return sum + (monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0);
       }, 0);
-      const areaSlab1Target = areaPlazas.reduce((sum, p) => {
-        const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
-        return sum + target;
-      }, 0);
-      const areaSlab2Target = areaPlazas.reduce((sum, p) => {
-        const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
-        return sum + target;
-      }, 0);
+      const areaTargets = Array.from({ length: targetLabels.length }, (_, i) =>
+        areaPlazas.reduce((sum, p) => sum + (monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Targets?.[i] || 0), 0));
       const areaAch = areaPlazas.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
       const areaAchPct = areaBaseTarget > 0 ? ((areaAch / areaBaseTarget) * 100).toFixed(2) : '0.00';
-      const areaSlab1AchPct = areaSlab1Target > 0 ? ((areaAch / areaSlab1Target) * 100).toFixed(2) : '0.00';
-      const areaSlab2AchPct = areaSlab2Target > 0 ? ((areaAch / areaSlab2Target) * 100).toFixed(2) : '0.00';
       const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
       
-      exportData.push({
+      const subRow: any = {
         'Area': `${area} - SUBTOTAL`,
         'Plaza Name': '',
         'Base Target': areaBaseTarget,
         'Ach': areaAch,
         'Ach %': areaAchPct + '%',
-        'Slab-1 Target': areaSlab1Target,
-        'Slab-1 Ach %': areaSlab1AchPct + '%',
-        'Slab-2 Target': areaSlab2Target,
-        'Slab-2 Ach %': areaSlab2AchPct + '%',
-        'Profit Ach': areaProfit,
+      };
+      areaTargets.forEach((t, i) => {
+        const tAchPct = t > 0 ? ((areaAch / t) * 100).toFixed(2) : '0.00';
+        subRow[`${targetLabels[i] || 'Target-' + (i+1)} Target`] = t;
+        subRow[`${targetLabels[i] || 'Target-' + (i+1)} Ach %`] = tAchPct + '%';
       });
+      subRow['Profit Ach'] = areaProfit;
+      exportData.push(subRow);
       
       // Add empty row for spacing
       exportData.push({});
@@ -1044,35 +1038,28 @@ function App() {
 
     // Add Grand Total
     const grandTotalBaseTarget = division2Data.reduce((sum, p) => {
-      const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
-      return sum + target;
+      return sum + (monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0);
     }, 0);
-    const grandTotalSlab1Target = division2Data.reduce((sum, p) => {
-      const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
-      return sum + target;
-    }, 0);
-    const grandTotalSlab2Target = division2Data.reduce((sum, p) => {
-      const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
-      return sum + target;
-    }, 0);
+    const grandTotalTargets = Array.from({ length: targetLabels.length }, (_, i) =>
+      division2Data.reduce((sum, p) => sum + (monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Targets?.[i] || 0), 0));
     const grandTotalAch = division2Data.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
     const grandTotalAchPct = grandTotalBaseTarget > 0 ? ((grandTotalAch / grandTotalBaseTarget) * 100).toFixed(2) : '0.00';
-    const grandTotalSlab1AchPct = grandTotalSlab1Target > 0 ? ((grandTotalAch / grandTotalSlab1Target) * 100).toFixed(2) : '0.00';
-    const grandTotalSlab2AchPct = grandTotalSlab2Target > 0 ? ((grandTotalAch / grandTotalSlab2Target) * 100).toFixed(2) : '0.00';
     const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
 
-    exportData.push({
+    const grandRow: any = {
       'Area': 'GRAND TOTAL',
       'Plaza Name': '',
       'Base Target': grandTotalBaseTarget,
       'Ach': grandTotalAch,
       'Ach %': grandTotalAchPct + '%',
-      'Slab-1 Target': grandTotalSlab1Target,
-      'Slab-1 Ach %': grandTotalSlab1AchPct + '%',
-      'Slab-2 Target': grandTotalSlab2Target,
-      'Slab-2 Ach %': grandTotalSlab2AchPct + '%',
-      'Profit Ach': grandTotalProfit,
+    };
+    grandTotalTargets.forEach((t, i) => {
+      const tAchPct = t > 0 ? ((grandTotalAch / t) * 100).toFixed(2) : '0.00';
+      grandRow[`${targetLabels[i] || 'Target-' + (i+1)} Target`] = t;
+      grandRow[`${targetLabels[i] || 'Target-' + (i+1)} Ach %`] = tAchPct + '%';
     });
+    grandRow['Profit Ach'] = grandTotalProfit;
+    exportData.push(grandRow);
 
     // Create worksheet
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -1470,17 +1457,35 @@ function App() {
 
       // Auto-detect header row: skip row 0 if col D is non-numeric (it's a header)
       const firstDataRow = raw[0] && isNaN(parseFloat((raw[0][3] || '').toString().replace(/,/g, ''))) ? 1 : 0;
+
+      // Extract target labels from header row
+      if (firstDataRow > 0 && raw[0]) {
+        const headerRow = raw[0];
+        const labels: string[] = [];
+        for (let i = 4; i < headerRow.length; i++) {
+          const h = (headerRow[i] || '').toString().trim();
+          if (h) labels.push(h);
+        }
+        if (labels.length > 0) setTargetLabels(labels);
+      }
+
       const rows = raw.slice(firstDataRow);
+      const numTargets = targetLabels.length;
 
       const parsed = rows
-        .map((r) => ({
-          Division: (r[0] || '').toString().trim(),
-          Area: (r[1] || '').toString().trim(),
-          PlazaName: (r[2] || '').toString().trim(),
-          BaseTarget: parseFloat((r[3] || '').toString().replace(/,/g, '')) || 0,
-          Slab1Target: parseFloat((r[4] || '').toString().replace(/,/g, '')) || 0,
-          Slab2Target: parseFloat((r[5] || '').toString().replace(/,/g, '')) || 0,
-        }))
+        .map((r) => {
+          const targets: number[] = [];
+          for (let i = 0; i < numTargets; i++) {
+            targets.push(parseFloat((r[4 + i] || '').toString().replace(/,/g, '')) || 0);
+          }
+          return {
+            Division: (r[0] || '').toString().trim(),
+            Area: (r[1] || '').toString().trim(),
+            PlazaName: (r[2] || '').toString().trim(),
+            BaseTarget: parseFloat((r[3] || '').toString().replace(/,/g, '')) || 0,
+            Targets: targets,
+          };
+        })
         .filter((d) => {
           const name = d.PlazaName;
           return name && name !== '' && name !== '0' && name.toLowerCase() !== 'plaza name' && name.toLowerCase() !== 'plaza';
@@ -3120,9 +3125,10 @@ function App() {
                 ? ((ach - prevAch) / prevAch * 100)
                 : null;
               const baseAchPct = (ach !== null && t.BaseTarget > 0) ? (ach / t.BaseTarget * 100) : null;
-              const slab1AchPct = (ach !== null && t.Slab1Target > 0) ? (ach / t.Slab1Target * 100) : null;
-              const slab2AchPct = (ach !== null && t.Slab2Target > 0) ? (ach / t.Slab2Target * 100) : null;
-              return { ...t, ach, profitAch, prevAch, growthPct, baseAchPct, slab1AchPct, slab2AchPct };
+              const targetAchPcts = (t.Targets || []).map((tgt: number) =>
+                (ach !== null && tgt > 0) ? (ach / tgt * 100) : null
+              );
+              return { ...t, ach, profitAch, prevAch, growthPct, baseAchPct, targetAchPcts };
             });
 
             // Also include plazas from currentYearData that have NO matching target row
@@ -3148,15 +3154,13 @@ function App() {
                 Area: c.Area || '',
                 PlazaName: c.Plaza || '',
                 BaseTarget: 0,
-                Slab1Target: 0,
-                Slab2Target: 0,
+                Targets: targetLabels.map(() => 0),
                 ach,
                 profitAch,
                 prevAch,
                 growthPct,
                 baseAchPct: null,
-                slab1AchPct: null,
-                slab2AchPct: null,
+                targetAchPcts: targetLabels.map(() => null as number | null),
               };
             });
 
@@ -3167,11 +3171,10 @@ function App() {
             const divisionWiseData = Object.values(enriched.reduce((acc, row) => {
               const div = row.Division || 'Unknown';
               if (!acc[div]) {
-                acc[div] = { Division: div, BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, profitAch: 0, prevAch: 0, plazaCount: 0 };
+                acc[div] = { Division: div, BaseTarget: 0, Targets: targetLabels.map(() => 0), ach: 0, profitAch: 0, prevAch: 0, plazaCount: 0 };
               }
               acc[div].BaseTarget += row.BaseTarget;
-              acc[div].Slab1Target += row.Slab1Target;
-              acc[div].Slab2Target += row.Slab2Target;
+              (row.Targets || []).forEach((t: number, i: number) => { acc[div].Targets[i] = (acc[div].Targets[i] || 0) + t; });
               acc[div].ach += row.ach || 0;
               acc[div].profitAch += row.profitAch || 0;
               acc[div].prevAch += row.prevAch || 0;
@@ -3180,19 +3183,17 @@ function App() {
             }, {} as Record<string, any>)).map((row: any) => ({
               ...row,
               baseAchPct: row.BaseTarget > 0 ? (row.ach / row.BaseTarget * 100) : null,
-              slab1AchPct: row.Slab1Target > 0 ? (row.ach / row.Slab1Target * 100) : null,
-              slab2AchPct: row.Slab2Target > 0 ? (row.ach / row.Slab2Target * 100) : null,
+              targetAchPcts: (row.Targets || []).map((t: number) => t > 0 ? (row.ach / t * 100) : null),
               growthPct: row.prevAch > 0 ? ((row.ach - row.prevAch) / row.prevAch * 100) : null,
             }));
 
             const areaWiseData = Object.values(enriched.reduce((acc, row) => {
               const key = `${row.Division}|${row.Area}`;
               if (!acc[key]) {
-                acc[key] = { Division: row.Division || 'Unknown', Area: row.Area || 'Unknown', BaseTarget: 0, Slab1Target: 0, Slab2Target: 0, ach: 0, profitAch: 0, prevAch: 0, plazaCount: 0 };
+                acc[key] = { Division: row.Division || 'Unknown', Area: row.Area || 'Unknown', BaseTarget: 0, Targets: targetLabels.map(() => 0), ach: 0, profitAch: 0, prevAch: 0, plazaCount: 0 };
               }
               acc[key].BaseTarget += row.BaseTarget;
-              acc[key].Slab1Target += row.Slab1Target;
-              acc[key].Slab2Target += row.Slab2Target;
+              (row.Targets || []).forEach((t: number, i: number) => { acc[key].Targets[i] = (acc[key].Targets[i] || 0) + t; });
               acc[key].ach += row.ach || 0;
               acc[key].profitAch += row.profitAch || 0;
               acc[key].prevAch += row.prevAch || 0;
@@ -3201,19 +3202,16 @@ function App() {
             }, {} as Record<string, any>)).map((row: any) => ({
               ...row,
               baseAchPct: row.BaseTarget > 0 ? (row.ach / row.BaseTarget * 100) : null,
-              slab1AchPct: row.Slab1Target > 0 ? (row.ach / row.Slab1Target * 100) : null,
-              slab2AchPct: row.Slab2Target > 0 ? (row.ach / row.Slab2Target * 100) : null,
+              targetAchPcts: (row.Targets || []).map((t: number) => t > 0 ? (row.ach / t * 100) : null),
               growthPct: row.prevAch > 0 ? ((row.ach - row.prevAch) / row.prevAch * 100) : null,
             }));
 
             // Summary totals
             const totalBase = enriched.reduce((s, r) => s + r.BaseTarget, 0);
-            const totalSlab1 = enriched.reduce((s, r) => s + r.Slab1Target, 0);
-            const totalSlab2 = enriched.reduce((s, r) => s + r.Slab2Target, 0);
+            const totalTargets = targetLabels.map((_, i) => enriched.reduce((s, r) => s + (r.Targets?.[i] || 0), 0));
             const totalAch = enriched.reduce((s, r) => s + (r.ach || 0), 0);
             const totalBaseAchPct = totalBase > 0 ? (totalAch / totalBase * 100) : 0;
-            const totalSlab1AchPct = totalSlab1 > 0 ? (totalAch / totalSlab1 * 100) : 0;
-            const totalSlab2AchPct = totalSlab2 > 0 ? (totalAch / totalSlab2 * 100) : 0;
+            const totalTargetAchPcts = totalTargets.map(t => t > 0 ? (totalAch / t * 100) : 0);
 
             const achPctColor = (pct: number | null) => {
               if (pct === null) return '#999';
@@ -3238,11 +3236,16 @@ function App() {
                   case 'growthPct': return row.growthPct ?? -Infinity;
                   case 'BaseTarget': return row.BaseTarget ?? 0;
                   case 'baseAchPct': return row.baseAchPct ?? -Infinity;
-                  case 'Slab1Target': return row.Slab1Target ?? 0;
-                  case 'slab1AchPct': return row.slab1AchPct ?? -Infinity;
-                  case 'Slab2Target': return row.Slab2Target ?? 0;
-                  case 'slab2AchPct': return row.slab2AchPct ?? -Infinity;
-                  default: return 0;
+                  case 'baseRemaining': return (row.BaseTarget || 0) - (row.ach || 0);
+                  default:
+                    if (targetSortColumn.startsWith('Target_')) {
+                      const parts = targetSortColumn.split('_');
+                      const idx = parseInt(parts[1]);
+                      if (parts.length === 3 && parts[2] === 'pct') return row.targetAchPcts?.[idx] ?? -Infinity;
+                      if (parts.length === 3 && parts[2] === 'remaining') return (row.Targets?.[idx] || 0) - (row.ach || 0);
+                      return row.Targets?.[idx] ?? 0;
+                    }
+                    return 0;
                 }
               };
               return [...baseRows].sort((a, b) => {
@@ -3274,23 +3277,39 @@ function App() {
                 {/* Slab Toggle */}
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '14px', fontWeight: '600', color: '#555' }}>Highlight Target:</span>
-                  {(['base', 'slab1', 'slab2'] as const).map(slab => (
+                  <button
+                    onClick={() => setActiveTargetSlab(-1)}
+                    style={{
+                      padding: '8px 20px',
+                      border: activeTargetSlab === -1 ? '2px solid #11998e' : '1px solid #ddd',
+                      background: activeTargetSlab === -1 ? '#e6fff8' : 'white',
+                      color: activeTargetSlab === -1 ? '#11998e' : '#666',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: activeTargetSlab === -1 ? 'bold' : 'normal',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Base Target
+                  </button>
+                  {targetLabels.map((label, idx) => (
                     <button
-                      key={slab}
-                      onClick={() => setActiveTargetSlab(slab)}
+                      key={idx}
+                      onClick={() => setActiveTargetSlab(idx)}
                       style={{
                         padding: '8px 20px',
-                        border: activeTargetSlab === slab ? '2px solid #11998e' : '1px solid #ddd',
-                        background: activeTargetSlab === slab ? '#e6fff8' : 'white',
-                        color: activeTargetSlab === slab ? '#11998e' : '#666',
+                        border: activeTargetSlab === idx ? '2px solid #11998e' : '1px solid #ddd',
+                        background: activeTargetSlab === idx ? '#e6fff8' : 'white',
+                        color: activeTargetSlab === idx ? '#11998e' : '#666',
                         borderRadius: '6px',
                         cursor: 'pointer',
                         fontSize: '13px',
-                        fontWeight: activeTargetSlab === slab ? 'bold' : 'normal',
+                        fontWeight: activeTargetSlab === idx ? 'bold' : 'normal',
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      {slab === 'base' ? 'Base Target' : slab === 'slab1' ? 'Slab-1 (680 Cr)' : 'Slab-2 (800 Cr)'}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -3344,8 +3363,13 @@ function App() {
                   {[
                     { label: 'Total Achievement', value: totalAch.toLocaleString(), color: '#667eea', bg: '#f0f4ff', border: '#667eea' },
                     { label: 'Base Target Ach %', value: totalBaseAchPct.toFixed(2) + '%', color: achPctColor(totalBaseAchPct), bg: '#fff', border: '#11998e' },
-                    { label: 'Slab-1 Ach %', value: totalSlab1AchPct.toFixed(2) + '%', color: achPctColor(totalSlab1AchPct), bg: '#fff', border: '#ff9800' },
-                    { label: 'Slab-2 Ach %', value: totalSlab2AchPct.toFixed(2) + '%', color: achPctColor(totalSlab2AchPct), bg: '#fff', border: '#dc3545' },
+                    ...totalTargetAchPcts.map((pct, i) => ({
+                      label: `${targetLabels[i]} Ach %`,
+                      value: pct.toFixed(2) + '%',
+                      color: achPctColor(pct),
+                      bg: '#fff',
+                      border: ['#ff9800','#dc3545','#9c27b0','#2196f3','#00bcd4','#4caf50','#ff5722'][i % 7],
+                    })),
                     { label: 'Total Plazas', value: enriched.length.toString(), color: '#333', bg: '#f8f9fa', border: '#ddd' },
                     { label: 'Base Target Achieved', value: enriched.filter(r => (r.baseAchPct ?? 0) >= 100).length.toString(), color: '#28a745', bg: '#e8f5e9', border: '#28a745' },
                   ].map(card => (
@@ -3353,6 +3377,31 @@ function App() {
                       <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '12px' }}>{card.label}</h4>
                       <p style={{ fontSize: '22px', fontWeight: 'bold', color: card.color, margin: 0 }}>{card.value}</p>
                     </div>
+                  ))}
+                </div>
+
+                {/* Show Remaining Columns Checkboxes */}
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', alignItems: 'center', flexWrap: 'wrap', padding: '12px 15px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#555' }}>Show Remaining:</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '13px', color: '#444' }}>
+                    <input
+                      type="checkbox"
+                      checked={!!showRemaining['base']}
+                      onChange={(e) => setShowRemaining(prev => ({ ...prev, base: e.target.checked }))}
+                      style={{ accentColor: '#11998e' }}
+                    />
+                    Base Remaining
+                  </label>
+                  {targetLabels.map((label, i) => (
+                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '13px', color: '#444' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!showRemaining[`target_${i}`]}
+                        onChange={(e) => setShowRemaining(prev => ({ ...prev, [`target_${i}`]: e.target.checked }))}
+                        style={{ accentColor: '#11998e' }}
+                      />
+                      {label} Remaining
+                    </label>
                   ))}
                 </div>
 
@@ -3368,12 +3417,16 @@ function App() {
                         <th onClick={() => handleSort('ach')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Achievement{sortArrow('ach')}</th>
                         <th onClick={() => handleSort('profitAch')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: 'linear-gradient(135deg, #1a9641 0%, #52b788 100%)', color: 'white' }}>Profit Ach{sortArrow('profitAch')}</th>
                         <th onClick={() => handleSort('growthPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)', color: 'white' }}>Growth %{sortArrow('growthPct')}</th>
-                        <th onClick={() => handleSort('BaseTarget')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Target{sortArrow('BaseTarget')}</th>
-                        <th onClick={() => handleSort('baseAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'base' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Ach %{sortArrow('baseAchPct')}</th>
-                        <th onClick={() => handleSort('Slab1Target')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Target{sortArrow('Slab1Target')}</th>
-                        <th onClick={() => handleSort('slab1AchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab1' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-1 Ach %{sortArrow('slab1AchPct')}</th>
-                        <th onClick={() => handleSort('Slab2Target')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Target{sortArrow('Slab2Target')}</th>
-                        <th onClick={() => handleSort('slab2AchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === 'slab2' ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Slab-2 Ach %{sortArrow('slab2AchPct')}</th>
+                        <th onClick={() => handleSort('BaseTarget')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === -1 ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Target{sortArrow('BaseTarget')}</th>
+                        <th onClick={() => handleSort('baseAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === -1 ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>Base Ach %{sortArrow('baseAchPct')}</th>
+                        {showRemaining['base'] && <th onClick={() => handleSort('baseRemaining')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: '#ffeaa7' }}>Base Remaining{sortArrow('baseRemaining')}</th>}
+                        {targetLabels.map((label, i) => (
+                          <React.Fragment key={i}>
+                            <th onClick={() => handleSort(`Target_${i}`)} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === i ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>{label} Target{sortArrow(`Target_${i}`)}</th>
+                            <th onClick={() => handleSort(`Target_${i}_pct`)} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: activeTargetSlab === i ? 'linear-gradient(135deg, #7f95f5 0%, #8d62bc 100%)' : undefined }}>{label} Ach %{sortArrow(`Target_${i}_pct`)}</th>
+                            {showRemaining[`target_${i}`] && <th onClick={() => handleSort(`Target_${i}_remaining`)} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none', background: '#ffeaa7' }}>{label} Remaining{sortArrow(`Target_${i}_remaining`)}</th>}
+                          </React.Fragment>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
@@ -3393,20 +3446,25 @@ function App() {
                             {row.growthPct !== null ? (row.growthPct >= 0 ? '+' : '') + row.growthPct.toFixed(2) + '%' : '—'}
                           </td>
                           {/* Base */}
-                          <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === 'base' ? '#f0f4f8' : 'transparent' }}>{row.BaseTarget.toLocaleString()}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === 'base' ? '#f0f4f8' : 'transparent', color: achPctColor(row.baseAchPct) }}>
+                          <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === -1 ? '#f0f4f8' : 'transparent' }}>{(row.BaseTarget || 0).toLocaleString()}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === -1 ? '#f0f4f8' : 'transparent', color: achPctColor(row.baseAchPct) }}>
                             {row.baseAchPct !== null ? row.baseAchPct.toFixed(2) + '%' : '—'}
                           </td>
-                          {/* Slab1 */}
-                          <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === 'slab1' ? '#fff8e1' : 'transparent' }}>{row.Slab1Target.toLocaleString()}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === 'slab1' ? '#fff8e1' : 'transparent', color: achPctColor(row.slab1AchPct) }}>
-                            {row.slab1AchPct !== null ? row.slab1AchPct.toFixed(2) + '%' : '—'}
-                          </td>
-                          {/* Slab2 */}
-                          <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === 'slab2' ? '#ffebee' : 'transparent' }}>{row.Slab2Target.toLocaleString()}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === 'slab2' ? '#ffebee' : 'transparent', color: achPctColor(row.slab2AchPct) }}>
-                            {row.slab2AchPct !== null ? row.slab2AchPct.toFixed(2) + '%' : '—'}
-                          </td>
+                          {showRemaining['base'] && <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', background: '#ffeaa7', color: ((row.BaseTarget || 0) - (row.ach || 0)) > 0 ? '#dc3545' : '#28a745' }}>
+                            {((row.BaseTarget || 0) - (row.ach || 0)).toLocaleString()}
+                          </td>}
+                          {/* Dynamic Targets */}
+                          {(row.Targets || []).map((tgt: number, i: number) => (
+                            <React.Fragment key={i}>
+                              <td style={{ padding: '10px', textAlign: 'right', background: activeTargetSlab === i ? '#fff8e1' : 'transparent' }}>{(tgt || 0).toLocaleString()}</td>
+                              <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', background: activeTargetSlab === i ? '#fff8e1' : 'transparent', color: achPctColor(row.targetAchPcts?.[i]) }}>
+                                {row.targetAchPcts?.[i] != null ? row.targetAchPcts[i].toFixed(2) + '%' : '—'}
+                              </td>
+                              {showRemaining[`target_${i}`] && <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', background: '#ffeaa7', color: ((tgt || 0) - (row.ach || 0)) > 0 ? '#dc3545' : '#28a745' }}>
+                                {((tgt || 0) - (row.ach || 0)).toLocaleString()}
+                              </td>}
+                            </React.Fragment>
+                          ))}
                         </tr>
                       ))}
                       {/* Total row */}
@@ -3423,10 +3481,14 @@ function App() {
                         </td>
                         <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalBase.toLocaleString()}</td>
                         <td style={{ padding: '12px 10px', textAlign: 'right', color: totalBaseAchPct >= 100 ? '#4ade80' : '#f87171' }}>{totalBaseAchPct.toFixed(2)}%</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalSlab1.toLocaleString()}</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right', color: totalSlab1AchPct >= 100 ? '#4ade80' : '#f87171' }}>{totalSlab1AchPct.toFixed(2)}%</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{totalSlab2.toLocaleString()}</td>
-                        <td style={{ padding: '12px 10px', textAlign: 'right', color: totalSlab2AchPct >= 100 ? '#4ade80' : '#f87171' }}>{totalSlab2AchPct.toFixed(2)}%</td>
+                        {showRemaining['base'] && <td style={{ padding: '12px 10px', textAlign: 'right', background: '#ffeaa7', color: (totalBase - totalAch) > 0 ? '#f87171' : '#4ade80' }}>{(totalBase - totalAch).toLocaleString()}</td>}
+                        {totalTargets.map((t, i) => (
+                          <React.Fragment key={i}>
+                            <td style={{ padding: '12px 10px', textAlign: 'right' }}>{t.toLocaleString()}</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'right', color: totalTargetAchPcts[i] >= 100 ? '#4ade80' : '#f87171' }}>{totalTargetAchPcts[i].toFixed(2)}%</td>
+                            {showRemaining[`target_${i}`] && <td style={{ padding: '12px 10px', textAlign: 'right', background: '#ffeaa7', color: (t - totalAch) > 0 ? '#f87171' : '#4ade80' }}>{(t - totalAch).toLocaleString()}</td>}
+                          </React.Fragment>
+                        ))}
                       </tr>
                     </tbody>
                   </table>
@@ -3452,9 +3514,16 @@ function App() {
         const rankingAreas = [...new Set(
           currentYearData.filter(d => !rankingDivisionFilter || d.Division === rankingDivisionFilter).map(d => d.Area)
         )].sort();
+        const rankingPlazas = [...new Set(
+          currentYearData.filter(d =>
+            (!rankingDivisionFilter || d.Division === rankingDivisionFilter) &&
+            (!rankingAreaFilter || d.Area === rankingAreaFilter)
+          ).map(d => d.Plaza)
+        )].sort();
         const rankingFiltered = currentYearData.filter(d =>
           (!rankingDivisionFilter || d.Division === rankingDivisionFilter) &&
-          (!rankingAreaFilter || d.Area === rankingAreaFilter)
+          (!rankingAreaFilter || d.Area === rankingAreaFilter) &&
+          (!rankingPlazaFilter || d.Plaza === rankingPlazaFilter)
         );
 
         // Get selected category
@@ -3468,9 +3537,9 @@ function App() {
           const totalTarget = rankingFiltered.reduce((s, d) => s + gv(d, cat.targetField), 0);
           const totalAch = rankingFiltered.reduce((s, d) => s + gv(d, cat.achField), 0);
           const totalMarks = rankingFiltered.reduce((s, d) => s + gv(d, cat.marksField), 0);
-          const achPct = cat.achPctField
+          const achPct = (cat.achPctField || totalTarget > 0)
             ? (totalTarget > 0 ? (totalAch / totalTarget * 100) : 0)
-            : (rankingFiltered.length > 0 ? rankingFiltered.reduce((s, d) => s + gv(d, cat.achPctField), 0) / rankingFiltered.length : 0);
+            : 0;
           return { ...cat, totalTarget, totalAch, achPct, totalMarks };
         });
 
@@ -3502,9 +3571,9 @@ function App() {
 
         const tableRows = Object.values(groupedRows).map((row: any) => ({
           ...row,
-          achPct: selCat.achPctField
+          achPct: (selCat.achPctField || row.target > 0)
             ? (row.target > 0 ? (row.ach / row.target * 100) : 0)
-            : (row.count > 0 ? row.achPctSum / row.count : 0)
+            : 0
         }));
 
         // Sort table rows
@@ -3528,7 +3597,7 @@ function App() {
         const grandTarget = sortedTableRows.reduce((s, r) => s + r.target, 0);
         const grandAch = sortedTableRows.reduce((s, r) => s + r.ach, 0);
         const grandMarks = sortedTableRows.reduce((s, r) => s + r.marks, 0);
-        const grandAchPct = selCat.achPctField ? (grandTarget > 0 ? (grandAch / grandTarget * 100) : 0) : 0;
+        const grandAchPct = (selCat.achPctField || grandTarget > 0) ? (grandTarget > 0 ? (grandAch / grandTarget * 100) : 0) : 0;
 
         const handleRankingSort = (col: string) => {
           if (rankingSortColumn === col) { setRankingSortDir(rankingSortDir === 'asc' ? 'desc' : 'asc'); }
@@ -3578,31 +3647,55 @@ function App() {
             {isRankingSectionOpen && (
             <div style={{ padding: '25px' }}>
               {/* 20 Category Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px', marginBottom: '25px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px', marginBottom: '25px' }}>
                 {cardSummaries.map(cat => {
                   const isSelected = rankingSelectedCard === cat.key;
+                  const pctVal = cat.achPct;
+                  const pctCol = pctColor(pctVal);
+                  const barWidth = Math.min(Math.max(pctVal, 0), 100);
                   return (
                     <div
                       key={cat.key}
                       onClick={() => setRankingSelectedCard(cat.key)}
                       style={{
-                        padding: '14px',
-                        borderRadius: '8px',
-                        border: isSelected ? '2px solid #667eea' : '1px solid #e0e0e0',
-                        background: isSelected ? 'linear-gradient(135deg, #f0f0ff 0%, #e8e0ff 100%)' : '#fafafa',
+                        padding: '0',
+                        borderRadius: '14px',
+                        border: isSelected ? '2px solid #667eea' : '1px solid #e8e8e8',
+                        background: isSelected ? '#fff' : '#fff',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        boxShadow: isSelected ? '0 3px 10px rgba(102,126,234,0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
+                        transition: 'all 0.25s ease',
+                        boxShadow: isSelected ? '0 6px 20px rgba(102,126,234,0.25)' : '0 2px 8px rgba(0,0,0,0.06)',
+                        overflow: 'hidden',
+                        transform: isSelected ? 'translateY(-2px)' : 'none',
                       }}
                     >
-                      <div style={{ fontSize: '12px', fontWeight: '700', color: isSelected ? '#667eea' : '#555', marginBottom: '8px', lineHeight: '1.3' }}>
-                        {cat.label}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '11px' }}>
-                        <div><span style={{ color: '#999' }}>Target:</span> <b>{(cat.totalTarget / 1000).toFixed(0)}K</b></div>
-                        <div><span style={{ color: '#999' }}>Ach:</span> <b>{(cat.totalAch / 1000).toFixed(0)}K</b></div>
-                        <div><span style={{ color: '#999' }}>Ach%:</span> <b style={{ color: pctColor(cat.achPct) }}>{cat.achPct.toFixed(1)}%</b></div>
-                        <div><span style={{ color: '#999' }}>Marks:</span> <b style={{ color: '#667eea' }}>{cat.totalMarks.toFixed(1)}</b></div>
+                      {/* Colored top bar */}
+                      <div style={{ height: '4px', background: pctVal >= 100 ? 'linear-gradient(90deg, #11998e, #38ef7d)' : pctVal >= 50 ? 'linear-gradient(90deg, #f7971e, #ffd200)' : 'linear-gradient(90deg, #eb3349, #f45c43)' }} />
+                      <div style={{ padding: '16px 18px 14px' }}>
+                        {/* Title */}
+                        <div style={{ fontSize: '13px', fontWeight: '700', color: isSelected ? '#667eea' : '#444', marginBottom: '12px', letterSpacing: '0.2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>{cat.label}</span>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: pctCol, background: pctVal >= 100 ? '#e6fff8' : pctVal >= 50 ? '#fff8e1' : '#ffeaea', padding: '2px 8px', borderRadius: '10px' }}>{pctVal.toFixed(1)}%</span>
+                        </div>
+                        {/* Metrics */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '11px', color: '#999', fontWeight: '500' }}>Target</span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>{cat.totalTarget.toLocaleString()}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '11px', color: '#999', fontWeight: '500' }}>Achievement</span>
+                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>{cat.totalAch.toLocaleString()}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '11px', color: '#999', fontWeight: '500' }}>Marks</span>
+                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#667eea' }}>{cat.totalMarks.toFixed(1)}</span>
+                          </div>
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{ marginTop: '10px', background: '#f0f0f0', borderRadius: '4px', height: '5px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${barWidth}%`, borderRadius: '4px', background: pctVal >= 100 ? 'linear-gradient(90deg, #11998e, #38ef7d)' : pctVal >= 50 ? 'linear-gradient(90deg, #f7971e, #ffd200)' : 'linear-gradient(90deg, #eb3349, #f45c43)', transition: 'width 0.5s ease' }} />
+                        </div>
                       </div>
                     </div>
                   );
@@ -3630,17 +3723,24 @@ function App() {
                 </div>
 
                 {/* Division Filter */}
-                <select value={rankingDivisionFilter} onChange={(e) => { setRankingDivisionFilter(e.target.value); setRankingAreaFilter(''); }}
+                <select value={rankingDivisionFilter} onChange={(e) => { setRankingDivisionFilter(e.target.value); setRankingAreaFilter(''); setRankingPlazaFilter(''); }}
                   style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px', minWidth: '160px' }}>
                   <option value="">All Divisions</option>
                   {rankingDivisions.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
 
                 {/* Area Filter */}
-                <select value={rankingAreaFilter} onChange={(e) => setRankingAreaFilter(e.target.value)}
+                <select value={rankingAreaFilter} onChange={(e) => { setRankingAreaFilter(e.target.value); setRankingPlazaFilter(''); }}
                   style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px', minWidth: '160px' }}>
                   <option value="">All Areas</option>
                   {rankingAreas.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+
+                {/* Plaza Filter */}
+                <select value={rankingPlazaFilter} onChange={(e) => setRankingPlazaFilter(e.target.value)}
+                  style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px', minWidth: '160px' }}>
+                  <option value="">All Plazas</option>
+                  {rankingPlazas.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
 
                 {/* Selected Category Label */}
@@ -4404,56 +4504,53 @@ function App() {
         // Render Division-02 section
         return (
           <>
-          <div style={{ 
-            margin: '50px 0 40px 0',
-            borderTop: '3px dashed #e0e0e0',
-            position: 'relative'
-          }}>
+          <div
+            onClick={() => setIsDivision2Open(!isDivision2Open)}
+            style={{
+              margin: '50px 0 0 0',
+              padding: '20px 30px',
+              background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
+              borderRadius: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              transition: 'opacity 0.2s',
+              boxShadow: '0 4px 15px rgba(231, 76, 60, 0.3)'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+            onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+          >
+            <div>
+              <h2 style={{ margin: '0 0 5px 0', color: 'white', fontSize: '24px' }}>📊 Division 2 - Detailed Report</h2>
+              <p style={{ color: 'rgba(255,255,255,0.9)', margin: 0, fontSize: '14px' }}>
+                {isDivision2Open
+                  ? 'Area-wise performance with target tiers and profit analysis — click to collapse'
+                  : 'Click to expand area-wise performance with target tiers and profit analysis'}
+              </p>
+            </div>
             <div style={{
-              position: 'absolute',
-              top: '-15px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              background: 'white',
-              padding: '0 20px',
-              color: '#999',
-              fontSize: '14px',
-              fontWeight: '600',
-              letterSpacing: '2px'
+              fontSize: '28px',
+              color: 'white',
+              transform: isDivision2Open ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.3s ease',
+              lineHeight: 1
             }}>
-              DIVISION 2 REPORT
+              ▼
             </div>
           </div>
 
+          {isDivision2Open && (
           <div className="division2-section" style={{ 
             background: 'linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)', 
             padding: '40px', 
-            borderRadius: '16px', 
+            borderRadius: '0 0 16px 16px',
+            marginTop: '0',
             boxShadow: '0 8px 24px rgba(231, 76, 60, 0.15)',
-            border: '2px solid #e74c3c'
+            border: '2px solid #e74c3c',
+            borderTop: 'none'
           }}>
-            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <div>
-                <h2 style={{ 
-                  margin: '0 0 8px 0',
-                  background: 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontSize: '32px',
-                  fontWeight: '900',
-                  letterSpacing: '1px'
-                }}>
-                  📊 Division 2 - Detailed Report
-                </h2>
-                <p style={{ 
-                  margin: 0, 
-                  color: '#666', 
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}>
-                  Area-wise performance with Slab targets and Profit analysis
-                </p>
-              </div>
+            <div className="section-header" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '25px' }}>
               <div className="btn-group" style={{ display: 'flex', gap: '12px' }}>
                 <button
                   onClick={shareDivision2AsPicture}
@@ -4568,10 +4665,12 @@ function App() {
                         <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Base Target</th>
                         <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Ach</th>
                         <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Ach %</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-1 Target</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-1 Ach %</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-2 Target</th>
-                        <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Slab-2 Ach %</th>
+                        {targetLabels.map((label, i) => (
+                          <React.Fragment key={i}>
+                            <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>{label} Target</th>
+                            <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>{label} Ach %</th>
+                          </React.Fragment>
+                        ))}
                         <th style={{ padding: '6px 4px', textAlign: 'right', fontWeight: '700', border: '1px solid #000', fontSize: '10px', whiteSpace: 'nowrap' }}>Profit Ach</th>
                       </tr>
                     </thead>
@@ -4584,30 +4683,20 @@ function App() {
                           const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
                           return sum + target;
                         }, 0);
-                        const areaSlab1Target = areaPlazas.reduce((sum, p) => {
-                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
-                          return sum + target;
-                        }, 0);
-                        const areaSlab2Target = areaPlazas.reduce((sum, p) => {
-                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
-                          return sum + target;
-                        }, 0);
+                        const areaTargetsArr = Array.from({ length: targetLabels.length }, (_, i) =>
+                          areaPlazas.reduce((sum, p) => sum + (monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Targets?.[i] || 0), 0));
                         const areaAch = areaPlazas.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
                         const areaAchPct = areaBaseTarget > 0 ? ((areaAch / areaBaseTarget) * 100).toFixed(2) : '0.00';
-                        const areaSlab1AchPct = areaSlab1Target > 0 ? ((areaAch / areaSlab1Target) * 100).toFixed(2) : '0.00';
-                        const areaSlab2AchPct = areaSlab2Target > 0 ? ((areaAch / areaSlab2Target) * 100).toFixed(2) : '0.00';
                         const areaProfit = areaPlazas.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
 
                         return (
                           <React.Fragment key={areaIdx}>
                             {areaPlazas.map((plaza, plazaIdx) => {
-                              const baseTarget = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.BaseTarget || 0;
-                              const slab1Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab1Target || 0;
-                              const slab2Target = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza)?.Slab2Target || 0;
+                              const targetRow = monthlyTargetData.find(t => t.PlazaName === plaza.Plaza);
+                              const baseTarget = targetRow?.BaseTarget || 0;
+                              const targets = targetRow?.Targets || [];
                               const ach = plaza.Total_Ach || 0;
                               const achPct = baseTarget > 0 ? ((ach / baseTarget) * 100).toFixed(2) : '0.00';
-                              const slab1AchPct = slab1Target > 0 ? ((ach / slab1Target) * 100).toFixed(2) : '0.00';
-                              const slab2AchPct = slab2Target > 0 ? ((ach / slab2Target) * 100).toFixed(2) : '0.00';
                               const profit = plaza.Net_Profit_Ach || 0;
 
                               return (
@@ -4625,18 +4714,19 @@ function App() {
                                   <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: parseFloat(achPct) >= 100 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
                                     {achPct}%
                                   </td>
-                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
-                                    {slab1Target.toLocaleString('en-IN')}
-                                  </td>
-                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: parseFloat(slab1AchPct) >= 100 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
-                                    {slab1AchPct}%
-                                  </td>
-                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
-                                    {slab2Target.toLocaleString('en-IN')}
-                                  </td>
-                                  <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: parseFloat(slab2AchPct) >= 100 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
-                                    {slab2AchPct}%
-                                  </td>
+                                  {targets.map((tgt: number, i: number) => {
+                                    const tAchPct = tgt > 0 ? ((ach / tgt) * 100).toFixed(2) : '0.00';
+                                    return (
+                                      <React.Fragment key={i}>
+                                        <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
+                                          {tgt.toLocaleString('en-IN')}
+                                        </td>
+                                        <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: parseFloat(tAchPct) >= 100 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
+                                          {tAchPct}%
+                                        </td>
+                                      </React.Fragment>
+                                    );
+                                  })}
                                   <td style={{ padding: '4px 4px', textAlign: 'right', border: '1px solid #000', fontWeight: '700', color: profit >= 0 ? '#27ae60' : '#e74c3c', fontSize: '10px' }}>
                                     {profit.toLocaleString('en-IN')}
                                   </td>
@@ -4663,18 +4753,19 @@ function App() {
                               <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(areaAchPct) >= 100 ? '#27ae60' : '#e74c3c' }}>
                                 {areaAchPct}%
                               </td>
-                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
-                                {areaSlab1Target.toLocaleString('en-IN')}
-                              </td>
-                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(areaSlab1AchPct) >= 100 ? '#27ae60' : '#e74c3c' }}>
-                                {areaSlab1AchPct}%
-                              </td>
-                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
-                                {areaSlab2Target.toLocaleString('en-IN')}
-                              </td>
-                              <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(areaSlab2AchPct) >= 100 ? '#27ae60' : '#e74c3c' }}>
-                                {areaSlab2AchPct}%
-                              </td>
+                              {areaTargetsArr.map((t: number, i: number) => {
+                                const tAchPct = t > 0 ? ((areaAch / t) * 100).toFixed(2) : '0.00';
+                                return (
+                                  <React.Fragment key={i}>
+                                    <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', color: '#666', fontSize: '10px' }}>
+                                      {t.toLocaleString('en-IN')}
+                                    </td>
+                                    <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(tAchPct) >= 100 ? '#27ae60' : '#e74c3c' }}>
+                                      {tAchPct}%
+                                    </td>
+                                  </React.Fragment>
+                                );
+                              })}
                               <td style={{ padding: '6px 4px', textAlign: 'right', border: '1px solid #000', fontSize: '10px', fontWeight: '700', color: areaProfit >= 0 ? '#27ae60' : '#e74c3c' }}>
                                 {areaProfit.toLocaleString('en-IN')}
                               </td>
@@ -4689,18 +4780,10 @@ function App() {
                           const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.BaseTarget || 0;
                           return sum + target;
                         }, 0);
-                        const grandTotalSlab1Target = division2Data.reduce((sum, p) => {
-                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab1Target || 0;
-                          return sum + target;
-                        }, 0);
-                        const grandTotalSlab2Target = division2Data.reduce((sum, p) => {
-                          const target = monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Slab2Target || 0;
-                          return sum + target;
-                        }, 0);
+                        const grandTotalTargetsArr = Array.from({ length: targetLabels.length }, (_, i) =>
+                          division2Data.reduce((sum, p) => sum + (monthlyTargetData.find(t => t.PlazaName === p.Plaza)?.Targets?.[i] || 0), 0));
                         const grandTotalAch = division2Data.reduce((sum, p) => sum + (p.Total_Ach || 0), 0);
                         const grandTotalAchPct = grandTotalBaseTarget > 0 ? ((grandTotalAch / grandTotalBaseTarget) * 100).toFixed(2) : '0.00';
-                        const grandTotalSlab1AchPct = grandTotalSlab1Target > 0 ? ((grandTotalAch / grandTotalSlab1Target) * 100).toFixed(2) : '0.00';
-                        const grandTotalSlab2AchPct = grandTotalSlab2Target > 0 ? ((grandTotalAch / grandTotalSlab2Target) * 100).toFixed(2) : '0.00';
                         const grandTotalProfit = division2Data.reduce((sum, p) => sum + (p.Net_Profit_Ach || 0), 0);
 
                         return (
@@ -4723,18 +4806,19 @@ function App() {
                             <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(grandTotalAchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
                               {grandTotalAchPct}%
                             </td>
-                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', color: 'rgba(255,255,255,0.9)' }}>
-                              {grandTotalSlab1Target.toLocaleString('en-IN')}
-                            </td>
-                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(grandTotalSlab1AchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
-                              {grandTotalSlab1AchPct}%
-                            </td>
-                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', color: 'rgba(255,255,255,0.9)' }}>
-                              {grandTotalSlab2Target.toLocaleString('en-IN')}
-                            </td>
-                            <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(grandTotalSlab2AchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
-                              {grandTotalSlab2AchPct}%
-                            </td>
+                            {grandTotalTargetsArr.map((t: number, i: number) => {
+                              const tAchPct = t > 0 ? ((grandTotalAch / t) * 100).toFixed(2) : '0.00';
+                              return (
+                                <React.Fragment key={i}>
+                                  <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', color: 'rgba(255,255,255,0.9)' }}>
+                                    {t.toLocaleString('en-IN')}
+                                  </td>
+                                  <td style={{ padding: '8px 4px', textAlign: 'right', border: '2px solid #000', fontSize: '10px', fontWeight: '700', color: parseFloat(tAchPct) >= 100 ? '#2ecc71' : '#e74c3c' }}>
+                                    {tAchPct}%
+                                  </td>
+                                </React.Fragment>
+                              );
+                            })}
                             <td style={{ padding: '12px 8px', textAlign: 'right', border: '3px solid #000', fontSize: '16px', fontWeight: '900', color: grandTotalProfit >= 0 ? '#2ecc71' : '#ff6b6b', background: grandTotalProfit >= 0 ? '#27ae60' : '#c0392b' }}>
                               {grandTotalProfit.toLocaleString('en-IN')}
                             </td>
@@ -4747,6 +4831,7 @@ function App() {
               );
             })()}
           </div>
+          )}
           </>
         );
       })()}
