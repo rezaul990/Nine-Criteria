@@ -164,7 +164,7 @@ function App() {
   const [targetDivisionFilter, setTargetDivisionFilter] = useState('');
   const [targetAreaFilter, setTargetAreaFilter] = useState('');
   const [activeTargetSlab, setActiveTargetSlab] = useState<number>(-1);
-  const [targetViewMode, setTargetViewMode] = useState<'division'|'area'|'plaza'>('area');
+  const [targetViewMode, setTargetViewMode] = useState<'division'|'area'|'plaza'>('plaza');
   const [targetLabels, setTargetLabels] = useState<string[]>(['Target-1 (350 Cr)','Target-2 (400 Cr)','Target-3 (440 Cr)','Target-4 (480 Cr)','Target-5 (520 Cr)','Target-6 (560 Cr)','Target-7 (600 Cr)']);
   const [showRemaining, setShowRemaining] = useState<Record<string, boolean>>({});
   // Sorting for target table
@@ -530,6 +530,15 @@ function App() {
     };
     loadSavedTarget();
   }, []);
+
+  // Auto-select Tangail area when target data loads (one-time default)
+  useEffect(() => {
+    if (monthlyTargetData.length > 0 && !targetAreaFilter) {
+      const areas = [...new Set(monthlyTargetData.map(d => d.Area))];
+      const tangail = areas.find(a => a?.toLowerCase().includes('tangail'));
+      if (tangail) setTargetAreaFilter(tangail);
+    }
+  }, [monthlyTargetData]);
 
   // Helper function to format timestamp as DD-MM-YYYY (HH:MM AM/PM)
   const formatTimestamp = (timestamp: string) => {
@@ -3405,6 +3414,67 @@ function App() {
                   ))}
                 </div>
 
+                {/* Download Excel Button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+                  <button
+                    onClick={() => {
+                      const rows = sortedRows.map((row: any) => {
+                        const obj: Record<string, any> = {};
+                        obj['Division'] = row.Division;
+                        if (targetViewMode === 'area' || targetViewMode === 'plaza') obj['Area'] = row.Area;
+                        if (targetViewMode === 'plaza') obj['Plaza Name'] = row.PlazaName;
+                        if (targetViewMode !== 'plaza') obj['Plaza Count'] = row.plazaCount;
+                        obj['Achievement'] = row.ach ?? 0;
+                        obj['Profit Ach'] = row.profitAch ?? 0;
+                        obj['Growth %'] = row.growthPct != null ? parseFloat(row.growthPct.toFixed(2)) : '';
+                        obj['Base Target'] = row.BaseTarget ?? 0;
+                        obj['Base Ach %'] = row.baseAchPct != null ? parseFloat(row.baseAchPct.toFixed(2)) : '';
+                        if (showRemaining['base']) obj['Base Remaining'] = (row.BaseTarget || 0) - (row.ach || 0);
+                        (targetLabels || []).forEach((label: string, i: number) => {
+                          obj[`${label} Target`] = row.Targets?.[i] ?? 0;
+                          obj[`${label} Ach %`] = row.targetAchPcts?.[i] != null ? parseFloat(row.targetAchPcts[i].toFixed(2)) : '';
+                          if (showRemaining[`target_${i}`]) obj[`${label} Remaining`] = (row.Targets?.[i] || 0) - (row.ach || 0);
+                        });
+                        return obj;
+                      });
+                      // Add total row
+                      const totalRow: Record<string, any> = {};
+                      totalRow['Division'] = 'TOTAL';
+                      if (targetViewMode === 'area' || targetViewMode === 'plaza') totalRow['Area'] = '';
+                      if (targetViewMode === 'plaza') totalRow['Plaza Name'] = '';
+                      if (targetViewMode !== 'plaza') totalRow['Plaza Count'] = enriched.length;
+                      totalRow['Achievement'] = totalAch;
+                      const totalProfit = enriched.reduce((s, r) => s + (r.profitAch || 0), 0);
+                      const totalPrev = enriched.reduce((s, r) => s + (r.prevAch || 0), 0);
+                      totalRow['Profit Ach'] = totalProfit;
+                      totalRow['Growth %'] = totalPrev > 0 ? parseFloat(((totalAch - totalPrev) / totalPrev * 100).toFixed(2)) : '';
+                      totalRow['Base Target'] = totalBase;
+                      totalRow['Base Ach %'] = parseFloat(totalBaseAchPct.toFixed(2));
+                      if (showRemaining['base']) totalRow['Base Remaining'] = totalBase - totalAch;
+                      (totalTargets || []).forEach((t: number, i: number) => {
+                        totalRow[`${targetLabels[i]} Target`] = t;
+                        totalRow[`${targetLabels[i]} Ach %`] = parseFloat(totalTargetAchPcts[i].toFixed(2));
+                        if (showRemaining[`target_${i}`]) totalRow[`${targetLabels[i]} Remaining`] = t - totalAch;
+                      });
+                      rows.push(totalRow);
+                      const ws = XLSX.utils.json_to_sheet(rows);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, 'Achievement');
+                      const vl = targetViewMode === 'division' ? 'Division' : targetViewMode === 'area' ? 'Area' : 'Plaza';
+                      XLSX.writeFile(wb, `Current_Month_Achievement_${vl}.xlsx`);
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                      color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                      fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px',
+                      boxShadow: '0 2px 8px rgba(17,153,142,0.3)'
+                    }}
+                  >
+                    📥 Download Excel
+                  </button>
+                </div>
+
                 {/* Table */}
                 <div className="table-scroll" style={{ overflowX: 'auto' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -3646,61 +3716,132 @@ function App() {
             {/* Collapsible Body */}
             {isRankingSectionOpen && (
             <div style={{ padding: '25px' }}>
-              {/* 20 Category Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px', marginBottom: '25px' }}>
-                {cardSummaries.map(cat => {
-                  const isSelected = rankingSelectedCard === cat.key;
-                  const pctVal = cat.achPct;
-                  const pctCol = pctColor(pctVal);
-                  const barWidth = Math.min(Math.max(pctVal, 0), 100);
+              {/* 20 Category Cards — Grouped Layout */}
+              {(() => {
+                const groups = [
+                  {
+                    title: 'Overall Business Performance',
+                    icon: '📊',
+                    gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    keys: ['Total', 'Retail', 'HireSales', 'DealerSales', 'CorpSales', 'SalesGrowth', 'NetProfit'],
+                  },
+                  {
+                    title: 'Collection',
+                    icon: '💰',
+                    gradient: 'linear-gradient(135deg, #f7971e 0%, #ffd200 100%)',
+                    keys: ['HireDP', 'HireLPR', 'HireCashAcc', 'HireDigitalAcc', 'DealerCol', 'CorpCol'],
+                  },
+                  {
+                    title: 'Product Category Performance',
+                    icon: '📦',
+                    gradient: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
+                    keys: ['Fridge', 'TV', 'AC', 'HAP', 'EAP', 'Mobile', 'IT'],
+                  },
+                ];
+
+                return groups.map((group, gi) => {
+                  const groupCards = group.keys.map(k => cardSummaries.find(c => c.key === k)).filter(Boolean) as any[];
+                  const groupTarget = groupCards.reduce((s: number, c: any) => s + c.totalTarget, 0);
+                  const groupAch = groupCards.reduce((s: number, c: any) => s + c.totalAch, 0);
+                  const groupMarks = groupCards.reduce((s: number, c: any) => s + c.totalMarks, 0);
+                  const groupPct = groupTarget > 0 ? (groupAch / groupTarget * 100) : 0;
+                  const sortedByPct = [...groupCards].sort((a: any, b: any) => b.achPct - a.achPct);
+                  const topPerformer = sortedByPct[0];
+
                   return (
-                    <div
-                      key={cat.key}
-                      onClick={() => setRankingSelectedCard(cat.key)}
-                      style={{
-                        padding: '0',
-                        borderRadius: '14px',
-                        border: isSelected ? '2px solid #667eea' : '1px solid #e8e8e8',
-                        background: isSelected ? '#fff' : '#fff',
-                        cursor: 'pointer',
-                        transition: 'all 0.25s ease',
-                        boxShadow: isSelected ? '0 6px 20px rgba(102,126,234,0.25)' : '0 2px 8px rgba(0,0,0,0.06)',
-                        overflow: 'hidden',
-                        transform: isSelected ? 'translateY(-2px)' : 'none',
-                      }}
-                    >
-                      {/* Colored top bar */}
-                      <div style={{ height: '4px', background: pctVal >= 100 ? 'linear-gradient(90deg, #11998e, #38ef7d)' : pctVal >= 50 ? 'linear-gradient(90deg, #f7971e, #ffd200)' : 'linear-gradient(90deg, #eb3349, #f45c43)' }} />
-                      <div style={{ padding: '16px 18px 14px' }}>
-                        {/* Title */}
-                        <div style={{ fontSize: '13px', fontWeight: '700', color: isSelected ? '#667eea' : '#444', marginBottom: '12px', letterSpacing: '0.2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span>{cat.label}</span>
-                          <span style={{ fontSize: '11px', fontWeight: '600', color: pctCol, background: pctVal >= 100 ? '#e6fff8' : pctVal >= 50 ? '#fff8e1' : '#ffeaea', padding: '2px 8px', borderRadius: '10px' }}>{pctVal.toFixed(1)}%</span>
-                        </div>
-                        {/* Metrics */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '11px', color: '#999', fontWeight: '500' }}>Target</span>
-                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>{cat.totalTarget.toLocaleString()}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '11px', color: '#999', fontWeight: '500' }}>Achievement</span>
-                            <span style={{ fontSize: '12px', fontWeight: '700', color: '#333' }}>{cat.totalAch.toLocaleString()}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '11px', color: '#999', fontWeight: '500' }}>Marks</span>
-                            <span style={{ fontSize: '13px', fontWeight: '800', color: '#667eea' }}>{cat.totalMarks.toFixed(1)}</span>
+                    <div key={gi} style={{ marginBottom: '24px' }}>
+                      {/* Group Header */}
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '14px 20px', borderRadius: '10px', marginBottom: '14px',
+                        background: group.gradient, boxShadow: '0 3px 12px rgba(0,0,0,0.12)'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '28px' }}>{group.icon}</span>
+                          <div>
+                            <div style={{ fontSize: '16px', fontWeight: '700', color: 'white' }}>{group.title}</div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>
+                              {groupCards.length} criteria • Top: {topPerformer?.label} ({topPerformer?.achPct.toFixed(1)}%)
+                            </div>
                           </div>
                         </div>
-                        {/* Progress bar */}
-                        <div style={{ marginTop: '10px', background: '#f0f0f0', borderRadius: '4px', height: '5px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${barWidth}%`, borderRadius: '4px', background: pctVal >= 100 ? 'linear-gradient(90deg, #11998e, #38ef7d)' : pctVal >= 50 ? 'linear-gradient(90deg, #f7971e, #ffd200)' : 'linear-gradient(90deg, #eb3349, #f45c43)', transition: 'width 0.5s ease' }} />
+                        <div style={{ display: 'flex', gap: '18px', alignItems: 'center' }}>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Marks</div>
+                            <div style={{ fontSize: '18px', fontWeight: '800', color: 'white' }}>{groupMarks.toFixed(1)}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ach %</div>
+                            <div style={{
+                              fontSize: '14px', fontWeight: '700', color: groupPct >= 100 ? '#e6fff8' : groupPct >= 60 ? '#fff8e1' : '#ffeaea',
+                              background: 'rgba(255,255,255,0.2)', padding: '3px 10px', borderRadius: '12px'
+                            }}>{groupPct.toFixed(1)}%</div>
+                          </div>
                         </div>
+                      </div>
+
+                      {/* Cards Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+                        {groupCards.map((cat: any) => {
+                          const isSelected = rankingSelectedCard === cat.key;
+                          const pctVal = cat.achPct;
+                          const pctCol = pctColor(pctVal);
+                          const barWidth = Math.min(Math.max(pctVal, 0), 100);
+                          const posInGroup = sortedByPct.findIndex((c: any) => c.key === cat.key) + 1;
+                          return (
+                            <div
+                              key={cat.key}
+                              onClick={() => setRankingSelectedCard(cat.key)}
+                              style={{
+                                padding: '0', borderRadius: '12px', position: 'relative',
+                                border: isSelected ? '2px solid #667eea' : '1px solid #eaeaea',
+                                background: '#fff', cursor: 'pointer', transition: 'all 0.2s ease',
+                                boxShadow: isSelected ? '0 6px 20px rgba(102,126,234,0.22)' : '0 1px 6px rgba(0,0,0,0.05)',
+                                transform: isSelected ? 'translateY(-2px)' : 'none',
+                              }}
+                            >
+                              <div style={{ height: '3px', background: pctVal >= 100 ? 'linear-gradient(90deg, #11998e, #38ef7d)' : pctVal >= 50 ? 'linear-gradient(90deg, #f7971e, #ffd200)' : 'linear-gradient(90deg, #eb3349, #f45c43)' }} />
+                              <div style={{ padding: '14px 16px 12px' }}>
+                                {/* Title + Rank Badge */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                  <span style={{ fontSize: '12px', fontWeight: '700', color: isSelected ? '#667eea' : '#444' }}>{cat.label}</span>
+                                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                    {posInGroup <= 3 && <span style={{ fontSize: '14px' }}>{posInGroup === 1 ? '🥇' : posInGroup === 2 ? '🥈' : '🥉'}</span>}
+                                    <span style={{
+                                      fontSize: '10px', fontWeight: '700', color: pctCol,
+                                      background: pctVal >= 100 ? '#e6fff8' : pctVal >= 50 ? '#fff8e1' : '#ffeaea',
+                                      padding: '2px 7px', borderRadius: '8px'
+                                    }}>{pctVal.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+                                {/* Metrics */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '10px', color: '#aaa' }}>Target</span>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#333' }}>{cat.totalTarget.toLocaleString()}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '10px', color: '#aaa' }}>Achievement</span>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#333' }}>{cat.totalAch.toLocaleString()}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '10px', color: '#aaa' }}>Marks</span>
+                                    <span style={{ fontSize: '12px', fontWeight: '800', color: '#667eea' }}>{cat.totalMarks.toFixed(1)}</span>
+                                  </div>
+                                </div>
+                                {/* Progress bar */}
+                                <div style={{ marginTop: '8px', background: '#f0f0f0', borderRadius: '3px', height: '4px', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${barWidth}%`, borderRadius: '3px', background: pctVal >= 100 ? 'linear-gradient(90deg, #11998e, #38ef7d)' : pctVal >= 50 ? 'linear-gradient(90deg, #f7971e, #ffd200)' : 'linear-gradient(90deg, #eb3349, #f45c43)', transition: 'width 0.4s ease' }} />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                });
+              })()}
 
               {/* View Mode + Filters */}
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
@@ -3743,9 +3884,40 @@ function App() {
                   {rankingPlazas.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
 
-                {/* Selected Category Label */}
-                <div style={{ padding: '7px 14px', background: '#667eea', color: 'white', borderRadius: '6px', fontSize: '13px', fontWeight: '600' }}>
-                  📋 {selCat.label}
+                {/* Selected Category Label + Download */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ padding: '7px 14px', background: '#667eea', color: 'white', borderRadius: '6px', fontSize: '13px', fontWeight: '600' }}>
+                    📋 {selCat.label}
+                  </div>
+                  <button
+                    onClick={() => {
+                      const rows = sortedTableRows.map((row: any) => {
+                        const obj: Record<string, any> = {};
+                        if (rankingViewMode === 'plaza') { obj['Division'] = row.Division; obj['Area'] = row.Area; obj['Plaza'] = row.Plaza; }
+                        else if (rankingViewMode === 'area') { obj['Division'] = row.Division; obj['Area'] = row.Area; }
+                        else { obj['Division'] = row.Division; }
+                        obj['Category'] = selCat.label;
+                        obj['Target'] = row.target;
+                        obj['Achievement'] = row.ach;
+                        obj['Ach %'] = parseFloat(row.achPct.toFixed(2));
+                        obj['Marks'] = parseFloat(row.marks.toFixed(1));
+                        return obj;
+                      });
+                      rows.push({
+                        ...(rankingViewMode === 'plaza' ? { Division: 'TOTAL', Area: '', Plaza: '' } : rankingViewMode === 'area' ? { Division: 'TOTAL', Area: '' } : { Division: 'TOTAL' }),
+                        Category: selCat.label, Target: grandTarget, Achievement: grandAch,
+                        'Ach %': parseFloat(grandAchPct.toFixed(2)), Marks: parseFloat(grandMarks.toFixed(1)),
+                      });
+                      const ws = XLSX.utils.json_to_sheet(rows);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, 'Ranking');
+                      const vl = rankingViewMode === 'division' ? 'Division' : rankingViewMode === 'area' ? 'Area' : 'Plaza';
+                      XLSX.writeFile(wb, `Ranking_${selCat.label.replace(/[^a-zA-Z0-9]/g, '_')}_${vl}.xlsx`);
+                    }}
+                    style={{ padding: '7px 16px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 8px rgba(102,126,234,0.3)' }}
+                  >
+                    📥 Download Excel
+                  </button>
                 </div>
               </div>
 
