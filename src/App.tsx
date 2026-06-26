@@ -1573,16 +1573,22 @@ function App() {
           textAlign: 'center'
         }}>
           <div style={{
-            width: '70px',
-            height: '70px',
-            margin: '0 auto 20px',
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            borderRadius: '50%',
+            padding: '15px 25px',
+            borderRadius: '8px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '32px'
-          }}>\uD83D\uDD12</div>
+            margin: '0 auto 20px'
+          }}>
+            <p style={{ 
+              color: 'white', 
+              margin: 0, 
+              fontSize: '16px',
+              fontWeight: '700',
+              letterSpacing: '0.5px'
+            }}>Powered By <span style={{ fontSize: '17px', fontWeight: '900' }}>BLCian</span></p>
+          </div>
           <h1 style={{ margin: '0 0 8px 0', fontSize: '24px', color: '#333' }}>Ranking Analysis</h1>
           <p style={{ color: '#888', margin: '0 0 30px 0', fontSize: '14px' }}>Enter password to access the dashboard</p>
           <form onSubmit={handlePasswordSubmit}>
@@ -5007,6 +5013,26 @@ function App() {
           </>
         );
       })()}
+
+      {/* Footer - Powered By */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', 
+        padding: '20px',
+        marginTop: '40px',
+        textAlign: 'center',
+        borderTop: '2px solid #1a252f',
+        borderRadius: '0 0 8px 8px'
+      }}>
+        <p style={{ 
+          color: '#ecf0f1', 
+          margin: 0, 
+          fontSize: '16px',
+          fontWeight: '600',
+          letterSpacing: '0.5px'
+        }}>
+          Powered By <span style={{ color: '#3498db', fontWeight: '700', fontSize: '17px' }}>Member of BLCian</span>
+        </p>
+      </div>
     </div>
   );
 }
