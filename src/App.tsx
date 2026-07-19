@@ -171,6 +171,28 @@ function App() {
   const [targetSortColumn, setTargetSortColumn] = useState<string>('');
   const [targetSortDir, setTargetSortDir] = useState<'asc'|'desc'>('desc');
 
+  // Yearly Target states
+  interface YearlyTargetRow {
+    Division: string;
+    Area: string;
+    PlazaName: string;
+    SalesTarget: number;
+    CollectionTarget: number;
+    NetProfitTarget: number;
+    ProfitTargetManager: number;
+    ProfitTargetManagerPlus2: number;
+    ProfitTargetAllEmployee: number;
+  }
+  const [yearlyTargetData, setYearlyTargetData] = useState<YearlyTargetRow[]>([]);
+  const [isDraggingYearlyTarget, setIsDraggingYearlyTarget] = useState(false);
+  const [yearlyTargetDivisionFilter, setYearlyTargetDivisionFilter] = useState('');
+  const [yearlyTargetAreaFilter, setYearlyTargetAreaFilter] = useState('');
+  const [yearlyTargetViewMode, setYearlyTargetViewMode] = useState<'division'|'area'|'plaza'>('plaza');
+  const [yearlyTargetSortColumn, setYearlyTargetSortColumn] = useState<string>('');
+  const [yearlyTargetSortDir, setYearlyTargetSortDir] = useState<'asc'|'desc'>('desc');
+  const [yearlyTargetLabels, setYearlyTargetLabels] = useState<string[]>(['Sales Target', 'Collection Target', 'Net Profit Target', 'Profit Target For Manager', 'Profit Target For Manager+ 2 Best Employee', 'Profit Target for All Employee']);
+  const [isYearlySectionOpen, setIsYearlySectionOpen] = useState(false);
+
   // Ranking Analysis states
   const [isRankingSectionOpen, setIsRankingSectionOpen] = useState(false);
   const [isDivision2Open, setIsDivision2Open] = useState(false);
@@ -235,12 +257,59 @@ function App() {
   const [currentUploadedAt, setCurrentUploadedAt] = useState('');
   const [previousUploadedAt, setPreviousUploadedAt] = useState('');
   const [targetUploadedAt, setTargetUploadedAt] = useState('');
-  
+
+  // Yearly target Firebase sync
+  const [isSavingYearlyTarget, setIsSavingYearlyTarget] = useState(false);
+  const [isLoadingYearlyTarget, setIsLoadingYearlyTarget] = useState(false);
+  const [yearlySaveStatus, setYearlySaveStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [savedYearlyLabel, setSavedYearlyLabel] = useState('');
+  const [yearlyTargetUploadedAt, setYearlyTargetUploadedAt] = useState('');
+
+  // Yearly achievement data (separate upload)
+  const [yearlyAchievementData, setYearlyAchievementData] = useState<PlazaData[]>([]);
+  const [isDraggingYearlyAch, setIsDraggingYearlyAch] = useState(false);
+  const [isLoadingYearlyAch, setIsLoadingYearlyAch] = useState(false);
+  const [yearlyAchSaveStatus, setYearlyAchSaveStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [yearlyAchUploadedAt, setYearlyAchUploadedAt] = useState('');
+
+  // Yearly Collection Ach File 1 (new custom format)
+  interface YearlyCollRow1New {
+    Plaza: string;
+    HireCollectionAch: number;
+    DealerCollectionAch: number;
+    CorpCollectionAch: number;
+  }
+  const [yearlyCollAch1, setYearlyCollAch1] = useState<YearlyCollRow1New[]>([]);
+  const [isDraggingCollAch1, setIsDraggingCollAch1] = useState(false);
+  const [isLoadingCollAch1, setIsLoadingCollAch1] = useState(false);
+  const [collAch1SaveStatus, setCollAch1SaveStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [collAch1UploadedAt, setCollAch1UploadedAt] = useState('');
+
+  // Yearly Collection Ach File 2 (new format)
+  interface YearlyCollRow2 {
+    PlazaName: string;
+    CashCollection: number;
+    HireCollection: number;
+    DealerCollection: number;
+    CorpCollection: number;
+    TotalCollection: number;
+  }
+  const [yearlyCollAch2, setYearlyCollAch2] = useState<YearlyCollRow2[]>([]);
+  const [isDraggingCollAch2, setIsDraggingCollAch2] = useState(false);
+  const [isLoadingCollAch2, setIsLoadingCollAch2] = useState(false);
+  const [collAch2SaveStatus, setCollAch2SaveStatus] = useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [collAch2UploadedAt, setCollAch2UploadedAt] = useState('');
+
   // Password protection state for target upload
   const [isTargetUploadUnlocked, setIsTargetUploadUnlocked] = useState(false);
   const [targetPasswordInput, setTargetPasswordInput] = useState('');
   const [showTargetUploadOptions, setShowTargetUploadOptions] = useState(false);
   
+  // Password protection state for yearly target upload
+  const [isYearlyTargetUploadUnlocked, setIsYearlyTargetUploadUnlocked] = useState(false);
+  const [yearlyTargetPasswordInput, setYearlyTargetPasswordInput] = useState('');
+  const [showYearlyTargetUploadOptions, setShowYearlyTargetUploadOptions] = useState(false);
+
   // Password protection state for previous year upload
   const [isPreviousUploadUnlocked, setIsPreviousUploadUnlocked] = useState(false);
   const [previousPasswordInput, setPreviousPasswordInput] = useState('');
@@ -530,6 +599,124 @@ function App() {
     };
     loadSavedTarget();
   }, []);
+
+  // Load saved yearly target data from Firestore on mount
+  useEffect(() => {
+    const loadSavedYearlyTarget = async () => {
+      setIsLoadingYearlyTarget(true);
+      try {
+        const q = query(collection(db, 'yearly_targets'), orderBy('Division'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const rows = snapshot.docs.map(d => d.data() as YearlyTargetRow);
+          setYearlyTargetData(rows);
+          try {
+            const metaSnap = await getDocs(collection(db, 'yearly_targets_meta'));
+            if (!metaSnap.empty) {
+              setSavedYearlyLabel(metaSnap.docs[0].data().yearLabel || '');
+              setYearlyTargetUploadedAt(metaSnap.docs[0].data().updatedAt || '');
+            }
+          } catch (_) {}
+          console.log('Loaded', rows.length, 'yearly target rows from Firestore');
+        }
+      } catch (err) {
+        console.error('Failed to load yearly target from Firestore:', err);
+      } finally {
+        setIsLoadingYearlyTarget(false);
+      }
+    };
+    loadSavedYearlyTarget();
+  }, []);
+
+  // Load saved yearly achievement data from Firestore on mount
+  useEffect(() => {
+    const loadSavedYearlyAch = async () => {
+      setIsLoadingYearlyAch(true);
+      try {
+        const q = query(collection(db, 'yearly_achievement_data'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const rows = snapshot.docs.map(d => d.data() as PlazaData);
+          setYearlyAchievementData(rows);
+          try {
+            const metaSnap = await getDocs(collection(db, 'yearly_achievement_meta'));
+            if (!metaSnap.empty) {
+              setYearlyAchUploadedAt(metaSnap.docs[0].data().updatedAt || '');
+            }
+          } catch (_) {}
+          console.log('Loaded', rows.length, 'yearly ach rows from Firestore');
+        }
+      } catch (err) {
+        console.error('Failed to load yearly ach from Firestore:', err);
+      } finally {
+        setIsLoadingYearlyAch(false);
+      }
+    };
+    loadSavedYearlyAch();
+  }, []);
+
+  // Load saved yearly collection ach file 1 from Firestore
+  useEffect(() => {
+    const loadSavedCollAch1 = async () => {
+      setIsLoadingCollAch1(true);
+      try {
+        const q = query(collection(db, 'yearly_coll_ach1_data'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const rows = snapshot.docs.map(d => d.data() as YearlyCollRow1New);
+          setYearlyCollAch1(rows);
+          try {
+            const metaSnap = await getDocs(collection(db, 'yearly_coll_ach1_meta'));
+            if (!metaSnap.empty) {
+              setCollAch1UploadedAt(metaSnap.docs[0].data().updatedAt || '');
+            }
+          } catch (_) {}
+          console.log('Loaded', rows.length, 'coll ach1 rows from Firestore');
+        }
+      } catch (err) {
+        console.error('Failed to load coll ach1 from Firestore:', err);
+      } finally {
+        setIsLoadingCollAch1(false);
+      }
+    };
+    loadSavedCollAch1();
+  }, []);
+
+  // Load saved yearly collection ach file 2 from Firestore
+  useEffect(() => {
+    const loadSavedCollAch2 = async () => {
+      setIsLoadingCollAch2(true);
+      try {
+        const q = query(collection(db, 'yearly_coll_ach2_data'));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const rows = snapshot.docs.map(d => d.data() as YearlyCollRow2);
+          setYearlyCollAch2(rows);
+          try {
+            const metaSnap = await getDocs(collection(db, 'yearly_coll_ach2_meta'));
+            if (!metaSnap.empty) {
+              setCollAch2UploadedAt(metaSnap.docs[0].data().updatedAt || '');
+            }
+          } catch (_) {}
+          console.log('Loaded', rows.length, 'coll ach2 rows from Firestore');
+        }
+      } catch (err) {
+        console.error('Failed to load coll ach2 from Firestore:', err);
+      } finally {
+        setIsLoadingCollAch2(false);
+      }
+    };
+    loadSavedCollAch2();
+  }, []);
+
+  // Auto-select Tangail area when yearly target data loads
+  useEffect(() => {
+    if (yearlyTargetData.length > 0 && !yearlyTargetAreaFilter) {
+      const areas = [...new Set(yearlyTargetData.map(d => d.Area))];
+      const tangail = areas.find(a => a?.toLowerCase().includes('tangail'));
+      if (tangail) setYearlyTargetAreaFilter(tangail);
+    }
+  }, [yearlyTargetData]);
 
   // Auto-select Tangail area when target data loads (one-time default)
   useEffect(() => {
@@ -1316,6 +1503,152 @@ function App() {
     }
   };
 
+  const saveYearlyAchToFirestore = async (rows: PlazaData[]) => {
+    setYearlyAchSaveStatus('saving');
+    try {
+      const existingSnap = await getDocs(collection(db, 'yearly_achievement_data'));
+      const deleteBatch = writeBatch(db);
+      existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      const BATCH_SIZE = 400;
+      const cleanRows = rows.map(r => {
+        const { allColumns, ...rest } = r;
+        return Object.fromEntries(Object.entries(rest).filter(([_, v]) => v !== undefined));
+      });
+
+      for (let i = 0; i < cleanRows.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        cleanRows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
+          const docId = `${(row.Plaza || 'Unknown').replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
+          batch.set(doc(db, 'yearly_achievement_data', docId), row);
+        });
+        await batch.commit();
+      }
+
+      const timestamp = new Date().toLocaleString();
+      await setDoc(doc(db, 'yearly_achievement_meta', 'current'), {
+        updatedAt: timestamp,
+        rowCount: rows.length,
+      });
+      setYearlyAchUploadedAt(timestamp);
+      setYearlyAchSaveStatus('saved');
+      console.log('Saved', cleanRows.length, 'yearly ach rows to Firestore');
+      setTimeout(() => setYearlyAchSaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Failed to save yearly ach to Firestore:', err);
+      setYearlyAchSaveStatus('error');
+      setTimeout(() => setYearlyAchSaveStatus('idle'), 5000);
+    }
+  };
+
+  const saveCollAch1ToFirestore = async (rows: YearlyCollRow1New[]) => {
+    setCollAch1SaveStatus('saving');
+    try {
+      const existingSnap = await getDocs(collection(db, 'yearly_coll_ach1_data'));
+      const deleteBatch = writeBatch(db);
+      existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        rows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
+          const docId = `${row.Plaza.replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
+          batch.set(doc(db, 'yearly_coll_ach1_data', docId), row);
+        });
+        await batch.commit();
+      }
+
+      const timestamp = new Date().toLocaleString();
+      await setDoc(doc(db, 'yearly_coll_ach1_meta', 'current'), {
+        updatedAt: timestamp,
+        rowCount: rows.length,
+      });
+      setCollAch1UploadedAt(timestamp);
+      setCollAch1SaveStatus('saved');
+      console.log('Saved', rows.length, 'coll ach1 rows to Firestore');
+      setTimeout(() => setCollAch1SaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Failed to save coll ach1 to Firestore:', err);
+      setCollAch1SaveStatus('error');
+      setTimeout(() => setCollAch1SaveStatus('idle'), 5000);
+    }
+  };
+
+  const saveCollAch2ToFirestore = async (rows: YearlyCollRow2[]) => {
+    setCollAch2SaveStatus('saving');
+    try {
+      const existingSnap = await getDocs(collection(db, 'yearly_coll_ach2_data'));
+      const deleteBatch = writeBatch(db);
+      existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        rows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
+          const docId = `${row.PlazaName.replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
+          batch.set(doc(db, 'yearly_coll_ach2_data', docId), row);
+        });
+        await batch.commit();
+      }
+
+      const timestamp = new Date().toLocaleString();
+      await setDoc(doc(db, 'yearly_coll_ach2_meta', 'current'), {
+        updatedAt: timestamp,
+        rowCount: rows.length,
+      });
+      setCollAch2UploadedAt(timestamp);
+      setCollAch2SaveStatus('saved');
+      console.log('Saved', rows.length, 'coll ach2 rows to Firestore');
+      setTimeout(() => setCollAch2SaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Failed to save coll ach2 to Firestore:', err);
+      setCollAch2SaveStatus('error');
+      setTimeout(() => setCollAch2SaveStatus('idle'), 5000);
+    }
+  };
+
+  const saveYearlyTargetToFirestore = async (rows: YearlyTargetRow[], yearLabel: string) => {
+    setIsSavingYearlyTarget(true);
+    setYearlySaveStatus('saving');
+    try {
+      const existingSnap = await getDocs(collection(db, 'yearly_targets'));
+      const deleteBatch = writeBatch(db);
+      existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+      await deleteBatch.commit();
+
+      const BATCH_SIZE = 400;
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        rows.slice(i, i + BATCH_SIZE).forEach((row, idx) => {
+          const docId = `${row.PlazaName.replace(/[^a-zA-Z0-9]/g, '_')}_${i + idx}`;
+          batch.set(doc(db, 'yearly_targets', docId), row);
+        });
+        await batch.commit();
+      }
+
+      const timestamp = new Date().toLocaleString();
+      await setDoc(doc(db, 'yearly_targets_meta', 'current'), {
+        yearLabel,
+        updatedAt: timestamp,
+        rowCount: rows.length,
+      });
+      setYearlyTargetUploadedAt(timestamp);
+      setSavedYearlyLabel(yearLabel);
+      setYearlySaveStatus('saved');
+      console.log('Saved', rows.length, 'yearly target rows to Firestore');
+      setTimeout(() => setYearlySaveStatus('idle'), 3000);
+    } catch (err) {
+      console.error('Failed to save yearly target to Firestore:', err);
+      setYearlySaveStatus('error');
+      setTimeout(() => setYearlySaveStatus('idle'), 5000);
+    } finally {
+      setIsSavingYearlyTarget(false);
+    }
+  };
+
   const saveCurrentToFirestore = async (rows: PlazaData[]) => {
     setSaveCurrentStatus('saving');
     try {
@@ -1434,6 +1767,87 @@ function App() {
     }
   };
 
+  const clearFirestoreYearlyAch = async () => {
+    if (!confirm('Are you sure you want to clear the saved yearly achievement data from the database?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'yearly_achievement_data'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      const metaSnap = await getDocs(collection(db, 'yearly_achievement_meta'));
+      const mb = writeBatch(db);
+      metaSnap.docs.forEach(d => mb.delete(d.ref));
+      await mb.commit();
+      setYearlyAchievementData([]);
+      setYearlyAchSaveStatus('idle');
+      setYearlyAchUploadedAt('');
+      console.log('Cleared Firestore yearly ach data');
+    } catch (err) {
+      console.error('Failed to clear yearly ach Firestore:', err);
+    }
+  };
+
+  // Clear saved yearly target data from Firestore
+  const clearFirestoreCollAch1 = async () => {
+    if (!confirm('Are you sure you want to clear the saved collection ach file 1 data from the database?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'yearly_coll_ach1_data'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      const metaSnap = await getDocs(collection(db, 'yearly_coll_ach1_meta'));
+      const mb = writeBatch(db);
+      metaSnap.docs.forEach(d => mb.delete(d.ref));
+      await mb.commit();
+      setYearlyCollAch1([]);
+      setCollAch1SaveStatus('idle');
+      setCollAch1UploadedAt('');
+      console.log('Cleared Firestore coll ach1 data');
+    } catch (err) {
+      console.error('Failed to clear coll ach1 Firestore:', err);
+    }
+  };
+
+  const clearFirestoreCollAch2 = async () => {
+    if (!confirm('Are you sure you want to clear the saved collection ach file 2 data from the database?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'yearly_coll_ach2_data'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      const metaSnap = await getDocs(collection(db, 'yearly_coll_ach2_meta'));
+      const mb = writeBatch(db);
+      metaSnap.docs.forEach(d => mb.delete(d.ref));
+      await mb.commit();
+      setYearlyCollAch2([]);
+      setCollAch2SaveStatus('idle');
+      setCollAch2UploadedAt('');
+      console.log('Cleared Firestore coll ach2 data');
+    } catch (err) {
+      console.error('Failed to clear coll ach2 Firestore:', err);
+    }
+  };
+
+  const clearFirestoreYearlyTarget = async () => {
+    if (!confirm('Are you sure you want to clear the saved yearly target data from the database?')) return;
+    try {
+      const snap = await getDocs(collection(db, 'yearly_targets'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      const metaSnap = await getDocs(collection(db, 'yearly_targets_meta'));
+      const mb = writeBatch(db);
+      metaSnap.docs.forEach(d => mb.delete(d.ref));
+      await mb.commit();
+      setYearlyTargetData([]);
+      setSavedYearlyLabel('');
+      setYearlySaveStatus('idle');
+      console.log('Cleared Firestore yearly target data');
+    } catch (err) {
+      console.error('Failed to clear yearly Firestore:', err);
+    }
+  };
+
   // Clear saved target data from Firestore
   const clearFirestoreTarget = async () => {
     if (!confirm('Are you sure you want to clear the saved target data from the database?')) return;
@@ -1510,6 +1924,56 @@ function App() {
     reader.readAsArrayBuffer(file);
   };
 
+  // Process the yearly target file (columns: Division, Area, Plaza Name, Sales Target, Collection Target, Net Profit Target, Profit Target For Manager, Profit Target For Manager+ 2 Best Employee, Profit Target for All Employee)
+  const processYearlyTargetFile = (file: File, yearLabel?: string) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = new Uint8Array(e.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      // Auto-detect header row: skip row 0 if col C (Plaza Name) is non-numeric
+      const firstDataRow = raw[0] && isNaN(parseFloat((raw[0][2] || '').toString().replace(/,/g, ''))) ? 1 : 0;
+
+      // Extract target labels from header row
+      if (firstDataRow > 0 && raw[0]) {
+        const headerRow = raw[0];
+        const labels: string[] = [];
+        for (let i = 3; i < Math.min(9, headerRow.length); i++) {
+          const h = (headerRow[i] || '').toString().trim();
+          if (h) labels.push(h);
+        }
+        if (labels.length > 0) setYearlyTargetLabels(labels);
+      }
+
+      const rows = raw.slice(firstDataRow);
+
+      const parsed = rows
+        .map((r) => ({
+          Division: (r[0] || '').toString().trim(),
+          Area: (r[1] || '').toString().trim(),
+          PlazaName: (r[2] || '').toString().trim(),
+          SalesTarget: parseFloat((r[3] || '').toString().replace(/,/g, '')) || 0,
+          CollectionTarget: parseFloat((r[4] || '').toString().replace(/,/g, '')) || 0,
+          NetProfitTarget: parseFloat((r[5] || '').toString().replace(/,/g, '')) || 0,
+          ProfitTargetManager: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0,
+          ProfitTargetManagerPlus2: parseFloat((r[7] || '').toString().replace(/,/g, '')) || 0,
+          ProfitTargetAllEmployee: parseFloat((r[8] || '').toString().replace(/,/g, '')) || 0,
+        }))
+        .filter((d) => {
+          const name = d.PlazaName;
+          return name && name !== '' && name !== '0' && name.toLowerCase() !== 'plaza name' && name.toLowerCase() !== 'plaza';
+        });
+
+      console.log('Yearly target file parsed:', parsed.length, 'rows');
+      setYearlyTargetData(parsed);
+
+      const label = yearLabel || file.name.replace(/\.(xlsx?)/i, '') || 'Yearly Target';
+      saveYearlyTargetToFirestore(parsed, label);
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
   // Comparison filter handlers
   const handleComparisonDivisionChange = (value: string) => {
@@ -3582,6 +4046,843 @@ function App() {
         </div>
       </div>
       {/* ===== END CURRENT MONTH ACHIEVEMENT SECTION ===== */}
+
+      {/* ===== YEARLY TARGET ACHIEVEMENT SECTION ===== */}
+      <div style={{
+        background: 'white',
+        marginBottom: '30px',
+        borderRadius: '12px',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+        overflow: 'hidden'
+      }}>
+        {/* Collapsible Header */}
+        <div
+          onClick={() => setIsYearlySectionOpen(!isYearlySectionOpen)}
+          style={{
+            padding: '20px 30px',
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+            cursor: 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            transition: 'background 0.2s ease'
+          }}
+          onMouseOver={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #0f3460 0%, #1a1a2e 50%, #16213e 100%)'}
+          onMouseOut={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'}
+        >
+          <div>
+            <h2 style={{ margin: '0 0 5px 0', color: 'white', fontSize: '24px' }}>
+              Yearly Target Achievement
+            </h2>
+            <p style={{ color: 'rgba(255,255,255,0.9)', margin: 0, fontSize: '14px' }}>
+              Upload the yearly target file to see achievement against annual targets
+            </p>
+          </div>
+          <span style={{ fontSize: '24px', color: 'white', transition: 'transform 0.3s ease', transform: isYearlySectionOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+            ▼
+          </span>
+        </div>
+
+        {isYearlySectionOpen && (
+        <div style={{ padding: '30px' }}>
+          {/* Loading from DB indicator */}
+          {isLoadingYearlyTarget && (
+            <div style={{ textAlign: 'center', padding: '20px', color: '#16213e', fontSize: '14px', marginBottom: '15px' }}>
+              <span style={{ fontSize: '24px', display: 'block', marginBottom: '8px', animation: 'spin 1s linear infinite' }}>⏳</span>
+              Loading saved yearly target data from database...
+            </div>
+          )}
+
+          {/* Toggle Upload Options Button */}
+          <div style={{ textAlign: 'right', marginBottom: '15px' }}>
+            <button 
+              onClick={() => setShowYearlyTargetUploadOptions(!showYearlyTargetUploadOptions)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#16213e',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                textDecoration: 'underline'
+              }}
+            >
+              {showYearlyTargetUploadOptions ? 'Hide Upload Options' : 'Show Upload Options 🔒'}
+            </button>
+          </div>
+
+          {showYearlyTargetUploadOptions && (
+            <div style={{ marginBottom: '25px' }}>
+              {!isYearlyTargetUploadUnlocked ? (
+                <div style={{ textAlign: 'center', padding: '30px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #ddd' }}>
+                  <h3 style={{ marginBottom: '10px', color: '#333' }}>🔒 Password Required</h3>
+                  <p style={{ color: '#666', marginBottom: '15px', fontSize: '14px' }}>Please enter the password to upload or manage yearly files.</p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                    <input
+                      type="password"
+                      placeholder="Enter password..."
+                      value={yearlyTargetPasswordInput}
+                      onChange={(e) => setYearlyTargetPasswordInput(e.target.value)}
+                      style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', outline: 'none', width: '200px' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (yearlyTargetPasswordInput === '123456') {
+                            setIsYearlyTargetUploadUnlocked(true);
+                            setYearlyTargetPasswordInput('');
+                          } else {
+                            alert('Incorrect password!');
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (yearlyTargetPasswordInput === '123456') {
+                          setIsYearlyTargetUploadUnlocked(true);
+                          setYearlyTargetPasswordInput('');
+                        } else {
+                          alert('Incorrect password!');
+                        }
+                      }}
+                      style={{ padding: '8px 16px', background: '#16213e', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      Unlock
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                {/* Upload Box - Yearly Target */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDraggingYearlyTarget(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDraggingYearlyTarget(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDraggingYearlyTarget(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                      processYearlyTargetFile(file);
+                    }
+                  }}
+                  style={{
+                    border: isDraggingYearlyTarget ? '2px dashed #16213e' : '2px dashed #ddd',
+                    background: isDraggingYearlyTarget ? '#e8ecf1' : yearlyTargetData.length > 0 ? '#e8f5e9' : '#f9f9f9',
+                    padding: '20px',
+                    textAlign: 'center',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    marginBottom: '25px'
+                  }}
+                >
+                  {yearlyTargetData.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+                      <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>Yearly Target File Loaded</p>
+                      <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>{yearlyTargetData.length} plazas loaded</p>
+                      {savedYearlyLabel && (
+                        <p style={{ fontSize: '11px', color: '#16213e', fontWeight: '600', marginBottom: '10px' }}>
+                          {savedYearlyLabel}
+                        </p>
+                      )}
+
+                      <div style={{ 
+                        background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)',
+                        padding: '12px 20px',
+                        borderRadius: '8px',
+                        marginBottom: '10px'
+                      }}>
+                        <p style={{ 
+                          fontSize: '16px', 
+                          color: 'white', 
+                          fontWeight: 'bold',
+                          margin: 0,
+                          letterSpacing: '0.5px'
+                        }}>
+                          Data Updated: {formatTimestamp(yearlyTargetUploadedAt)}
+                        </p>
+                      </div>
+
+                      <div style={{ marginBottom: '8px' }}>
+                        {yearlySaveStatus === 'saving' && (
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#fff3cd', color: '#856404', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ☁️ Saving...
+                          </span>
+                        )}
+                        {yearlySaveStatus === 'saved' && (
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d4edda', color: '#155724', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ✅ Saved
+                          </span>
+                        )}
+                        {yearlySaveStatus === 'error' && (
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#f8d7da', color: '#721c24', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ❌ Failed
+                          </span>
+                        )}
+                        {yearlySaveStatus === 'idle' && savedYearlyLabel && (
+                          <span style={{ display: 'inline-block', padding: '3px 10px', background: '#d1ecf1', color: '#0c5460', borderRadius: '15px', fontSize: '11px', fontWeight: '600' }}>
+                            ☁️ Synced
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <label style={{
+                          display: 'inline-block',
+                          padding: '6px 16px',
+                          background: '#16213e',
+                          color: 'white',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}>
+                          Re-upload
+                          <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) processYearlyTargetFile(f); }} style={{ display: 'none' }} />
+                        </label>
+                        <button
+                          onClick={clearFirestoreYearlyTarget}
+                          style={{
+                            padding: '6px 16px',
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          Clear Data
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '36px', marginBottom: '10px' }}>📅</div>
+                      <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                        {isDraggingYearlyTarget ? 'Drop the yearly target file here' : 'Drag & drop the yearly target Excel file or click to browse'}
+                      </p>
+                      <p style={{ fontSize: '12px', color: '#888', marginBottom: '15px', fontStyle: 'italic' }}>
+                        Previously saved data loads automatically from Firebase on each visit
+                      </p>
+                      <label style={{
+                        display: 'inline-block',
+                        padding: '10px 20px',
+                        background: '#16213e',
+                        color: 'white',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}>
+                        Browse Files
+                        <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) processYearlyTargetFile(f); }} style={{ display: 'none' }} />
+                      </label>
+                      <p style={{ fontSize: '12px', color: '#999', marginTop: '12px' }}>Supported formats: .xlsx, .xls</p>
+                    </>
+                  )}
+                </div>
+
+                {/* Yearly Achievement File Upload */}
+                <div style={{ marginBottom: '20px', padding: '20px', background: '#f0f4ff', borderRadius: '8px', border: '1px solid #cce5ff' }}>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#16213e', fontSize: '16px' }}>Yearly Achievement File</h4>
+                  <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>Upload the nine-criteria achievement Excel file for yearly data</p>
+                  {isLoadingYearlyAch && <div style={{ textAlign: 'center', padding: '10px', color: '#16213e', fontSize: '13px', marginBottom: '10px' }}>Loading saved achievement data from database...</div>}
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDraggingYearlyAch(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); setIsDraggingYearlyAch(false); }}
+                    onDrop={(e) => { e.preventDefault(); setIsDraggingYearlyAch(false); const file = e.dataTransfer.files?.[0]; if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) { const reader = new FileReader(); reader.onload = (ev) => { const data = new Uint8Array(ev.target?.result as ArrayBuffer); const workbook = XLSX.read(data, { type: 'array' }); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 }); const parsedData = parseExcelRows(raw); setYearlyAchievementData(parsedData); saveYearlyAchToFirestore(parsedData); }; reader.readAsArrayBuffer(file); } }}
+                    style={{ border: isDraggingYearlyAch ? '2px dashed #16213e' : '2px dashed #ccc', background: isDraggingYearlyAch ? '#e8ecf1' : yearlyAchievementData.length > 0 ? '#e8f5e9' : '#fafafa', padding: '20px', textAlign: 'center', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.3s ease' }}
+                  >
+                    {yearlyAchievementData.length > 0 ? (
+                      <div>
+                        <div style={{ fontSize: '28px', marginBottom: '6px' }}>✅</div>
+                        <p style={{ color: '#28a745', fontWeight: 'bold', marginBottom: '4px', fontSize: '14px' }}>Yearly Achievement File Loaded</p>
+                        <p style={{ fontSize: '12px', color: '#666', marginBottom: '6px' }}>{yearlyAchievementData.length} plazas loaded</p>
+                        {yearlyAchUploadedAt && <p style={{ fontSize: '11px', color: '#666', marginBottom: '8px' }}>Updated: {formatTimestamp(yearlyAchUploadedAt)}</p>}
+                        <div style={{ marginBottom: '6px' }}>
+                          {yearlyAchSaveStatus === 'saving' && <span style={{ padding: '2px 8px', background: '#fff3cd', color: '#856404', borderRadius: '12px', fontSize: '11px' }}>☁️ Saving...</span>}
+                          {yearlyAchSaveStatus === 'saved' && <span style={{ padding: '2px 8px', background: '#d4edda', color: '#155724', borderRadius: '12px', fontSize: '11px' }}>✅ Saved</span>}
+                          {yearlyAchSaveStatus === 'error' && <span style={{ padding: '2px 8px', background: '#f8d7da', color: '#721c24', borderRadius: '12px', fontSize: '11px' }}>❌ Failed</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ display: 'inline-block', padding: '5px 14px', background: '#16213e', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+                            Re-upload
+                            <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const reader = new FileReader(); reader.onload = (ev) => { const data = new Uint8Array(ev.target?.result as ArrayBuffer); const workbook = XLSX.read(data, { type: 'array' }); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 }); const parsedData = parseExcelRows(raw); setYearlyAchievementData(parsedData); saveYearlyAchToFirestore(parsedData); }; reader.readAsArrayBuffer(f); } }} style={{ display: 'none' }} />
+                          </label>
+                          <button onClick={clearFirestoreYearlyAch} style={{ padding: '5px 14px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>Clear</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>📊</div>
+                        <p style={{ fontSize: '13px', color: '#666', marginBottom: '10px' }}>{isDraggingYearlyAch ? 'Drop the file here' : 'Drag & drop the nine-criteria Excel file or click to browse'}</p>
+                        <label style={{ display: 'inline-block', padding: '8px 18px', background: '#16213e', color: 'white', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '500' }}>
+                          Browse Files
+                          <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const reader = new FileReader(); reader.onload = (ev) => { const data = new Uint8Array(ev.target?.result as ArrayBuffer); const workbook = XLSX.read(data, { type: 'array' }); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 }); const parsedData = parseExcelRows(raw); setYearlyAchievementData(parsedData); saveYearlyAchToFirestore(parsedData); }; reader.readAsArrayBuffer(f); } }} style={{ display: 'none' }} />
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Collection Achievement Files */}
+                <div style={{ marginBottom: '20px', padding: '20px', background: '#fefce8', borderRadius: '8px', border: '1px solid #fde68a' }}>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#92400e', fontSize: '16px' }}>Collection Achievement Files</h4>
+                  <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>Upload collection-specific ach files for more precise Collection Ach calculation</p>
+
+                  {/* Collection File 1 */}
+                  <div style={{ marginBottom: '20px', padding: '15px', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                    <h5 style={{ margin: '0 0 5px 0', color: '#374151', fontSize: '14px' }}>Collection File 1 (Custom Format)</h5>
+                    <p style={{ fontSize: '12px', color: '#888', marginBottom: '10px' }}>Categories: Rank, Plaza, Total Marks, Total, Survey, Retail, Hire Sales, <b>Hire Collection</b>, Dealer Sales, <b>Dealer Collection</b>, Corporate Sales, <b>Corporate Collection</b>, Fridge, TV, AC, HAP, KAP, EAP, Mobile, Computer, Profit, Old Stock, Digital Hire, Sales Contribution, Collection Contribution, Profit Contribution</p>
+                    {isLoadingCollAch1 && <div style={{ textAlign: 'center', padding: '8px', color: '#92400e', fontSize: '12px' }}>Loading...</div>}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingCollAch1(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsDraggingCollAch1(false); }}
+                      onDrop={(e) => { e.preventDefault(); setIsDraggingCollAch1(false); const file = e.dataTransfer.files?.[0]; if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) { const reader = new FileReader(); reader.onload = (ev) => { const data = new Uint8Array(ev.target?.result as ArrayBuffer); const workbook = XLSX.read(data, { type: 'array' }); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 }); const firstRow = raw[0] && isNaN(parseFloat((raw[0][1] || '').toString().replace(/,/g, ''))) ? 1 : 0; const rows = raw.slice(firstRow); const parsed: YearlyCollRow1New[] = rows.map(r => ({ Plaza: (r[1] || '').toString().trim(), HireCollectionAch: parseFloat((r[18] || '').toString().replace(/,/g, '')) || 0, DealerCollectionAch: parseFloat((r[26] || '').toString().replace(/,/g, '')) || 0, CorpCollectionAch: parseFloat((r[34] || '').toString().replace(/,/g, '')) || 0 })).filter(d => d.Plaza && d.Plaza !== '' && d.Plaza.toLowerCase() !== 'plaza'); setYearlyCollAch1(parsed); saveCollAch1ToFirestore(parsed); }; reader.readAsArrayBuffer(file); } }}
+                      style={{ border: isDraggingCollAch1 ? '2px dashed #92400e' : '2px dashed #ddd', background: isDraggingCollAch1 ? '#fffbeb' : yearlyCollAch1.length > 0 ? '#f0fdf4' : '#fafafa', padding: '15px', textAlign: 'center', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.3s ease' }}
+                    >
+                      {yearlyCollAch1.length > 0 ? (
+                        <div>
+                          <span style={{ fontSize: '16px' }}>✅ File 1 Loaded ({yearlyCollAch1.length} plazas)</span>
+                          {collAch1UploadedAt && <p style={{ fontSize: '11px', color: '#888', margin: '4px 0' }}>Updated: {formatTimestamp(collAch1UploadedAt)}</p>}
+                          <div style={{ marginTop: '6px', display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                            <label style={{ padding: '4px 12px', background: '#92400e', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>
+                              Re-upload
+                              <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = (ev) => { const d = new Uint8Array(ev.target?.result as ArrayBuffer); const wb = XLSX.read(d, { type: 'array' }); const s = wb.Sheets[wb.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(s, { header: 1 }); const fr = raw[0] && isNaN(parseFloat((raw[0][1] || '').toString().replace(/,/g, ''))) ? 1 : 0; const rows = raw.slice(fr); const p: YearlyCollRow1New[] = rows.map(r => ({ Plaza: (r[1] || '').toString().trim(), HireCollectionAch: parseFloat((r[18] || '').toString().replace(/,/g, '')) || 0, DealerCollectionAch: parseFloat((r[26] || '').toString().replace(/,/g, '')) || 0, CorpCollectionAch: parseFloat((r[34] || '').toString().replace(/,/g, '')) || 0 })).filter(d => d.Plaza && d.Plaza !== '' && d.Plaza.toLowerCase() !== 'plaza'); setYearlyCollAch1(p); saveCollAch1ToFirestore(p); }; r.readAsArrayBuffer(f); } }} style={{ display: 'none' }} />
+                            </label>
+                            <button onClick={clearFirestoreCollAch1} style={{ padding: '4px 12px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>Clear</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>{isDraggingCollAch1 ? 'Drop file here' : 'Drag & drop or click to browse'}</p>
+                          <label style={{ display: 'inline-block', marginTop: '8px', padding: '6px 14px', background: '#92400e', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
+                            Browse
+                            <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = (ev) => { const d = new Uint8Array(ev.target?.result as ArrayBuffer); const wb = XLSX.read(d, { type: 'array' }); const s = wb.Sheets[wb.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(s, { header: 1 }); const fr = raw[0] && isNaN(parseFloat((raw[0][1] || '').toString().replace(/,/g, ''))) ? 1 : 0; const rows = raw.slice(fr); const p: YearlyCollRow1New[] = rows.map(r => ({ Plaza: (r[1] || '').toString().trim(), HireCollectionAch: parseFloat((r[18] || '').toString().replace(/,/g, '')) || 0, DealerCollectionAch: parseFloat((r[26] || '').toString().replace(/,/g, '')) || 0, CorpCollectionAch: parseFloat((r[34] || '').toString().replace(/,/g, '')) || 0 })).filter(d => d.Plaza && d.Plaza !== '' && d.Plaza.toLowerCase() !== 'plaza'); setYearlyCollAch1(p); saveCollAch1ToFirestore(p); }; r.readAsArrayBuffer(f); } }} style={{ display: 'none' }} />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Collection File 2 */}
+                  <div style={{ padding: '15px', background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                    <h5 style={{ margin: '0 0 5px 0', color: '#374151', fontSize: '14px' }}>Collection File 2 (Cash/Hire/Dealer/Corp Format)</h5>
+                    <p style={{ fontSize: '12px', color: '#888', marginBottom: '10px' }}>Columns: Plaza Name (B), Cash Collection (D), Hire Collection (E), Dealer (G), Cor. Collection (H), Total Collection (J)</p>
+                    {isLoadingCollAch2 && <div style={{ textAlign: 'center', padding: '8px', color: '#92400e', fontSize: '12px' }}>Loading...</div>}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDraggingCollAch2(true); }}
+                      onDragLeave={(e) => { e.preventDefault(); setIsDraggingCollAch2(false); }}
+                      onDrop={(e) => { e.preventDefault(); setIsDraggingCollAch2(false); const file = e.dataTransfer.files?.[0]; if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) { const reader = new FileReader(); reader.onload = (ev) => { const data = new Uint8Array(ev.target?.result as ArrayBuffer); const workbook = XLSX.read(data, { type: 'array' }); const sheet = workbook.Sheets[workbook.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 }); const firstRow = raw[0] && isNaN(parseFloat((raw[0][1] || '').toString().replace(/,/g, ''))) ? 1 : 0; const rows = raw.slice(firstRow); const parsed: YearlyCollRow2[] = rows.map(r => ({ PlazaName: (r[1] || '').toString().trim(), CashCollection: parseFloat((r[3] || '').toString().replace(/,/g, '')) || 0, HireCollection: parseFloat((r[4] || '').toString().replace(/,/g, '')) || 0, DealerCollection: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0, CorpCollection: parseFloat((r[7] || '').toString().replace(/,/g, '')) || 0, TotalCollection: parseFloat((r[9] || '').toString().replace(/,/g, '')) || 0 })).filter(d => d.PlazaName && d.PlazaName !== '' && d.PlazaName.toLowerCase() !== 'plaza name'); setYearlyCollAch2(parsed); saveCollAch2ToFirestore(parsed); }; reader.readAsArrayBuffer(file); } }}
+                      style={{ border: isDraggingCollAch2 ? '2px dashed #92400e' : '2px dashed #ddd', background: isDraggingCollAch2 ? '#fffbeb' : yearlyCollAch2.length > 0 ? '#f0fdf4' : '#fafafa', padding: '15px', textAlign: 'center', borderRadius: '6px', cursor: 'pointer', transition: 'all 0.3s ease' }}
+                    >
+                      {yearlyCollAch2.length > 0 ? (
+                        <div>
+                          <span style={{ fontSize: '16px' }}>✅ File 2 Loaded ({yearlyCollAch2.length} plazas)</span>
+                          {collAch2UploadedAt && <p style={{ fontSize: '11px', color: '#888', margin: '4px 0' }}>Updated: {formatTimestamp(collAch2UploadedAt)}</p>}
+                          <div style={{ marginTop: '6px', display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                            <label style={{ padding: '4px 12px', background: '#92400e', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>
+                              Re-upload
+                              <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = (ev) => { const d = new Uint8Array(ev.target?.result as ArrayBuffer); const wb = XLSX.read(d, { type: 'array' }); const s = wb.Sheets[wb.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(s, { header: 1 }); const fr = raw[0] && isNaN(parseFloat((raw[0][1] || '').toString().replace(/,/g, ''))) ? 1 : 0; const rows = raw.slice(fr); const p = rows.map(r => ({ PlazaName: (r[1] || '').toString().trim(), CashCollection: parseFloat((r[3] || '').toString().replace(/,/g, '')) || 0, HireCollection: parseFloat((r[4] || '').toString().replace(/,/g, '')) || 0, DealerCollection: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0, CorpCollection: parseFloat((r[7] || '').toString().replace(/,/g, '')) || 0, TotalCollection: parseFloat((r[9] || '').toString().replace(/,/g, '')) || 0 })).filter(d => d.PlazaName && d.PlazaName !== '' && d.PlazaName.toLowerCase() !== 'plaza name'); setYearlyCollAch2(p); saveCollAch2ToFirestore(p); }; r.readAsArrayBuffer(f); } }} style={{ display: 'none' }} />
+                            </label>
+                            <button onClick={clearFirestoreCollAch2} style={{ padding: '4px 12px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>Clear</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p style={{ fontSize: '12px', color: '#888', margin: 0 }}>{isDraggingCollAch2 ? 'Drop file here' : 'Drag & drop or click to browse'}</p>
+                          <label style={{ display: 'inline-block', marginTop: '8px', padding: '6px 14px', background: '#92400e', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
+                            Browse
+                            <input type="file" accept=".xls,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = (ev) => { const d = new Uint8Array(ev.target?.result as ArrayBuffer); const wb = XLSX.read(d, { type: 'array' }); const s = wb.Sheets[wb.SheetNames[0]]; const raw: any[][] = XLSX.utils.sheet_to_json(s, { header: 1 }); const fr = raw[0] && isNaN(parseFloat((raw[0][1] || '').toString().replace(/,/g, ''))) ? 1 : 0; const rows = raw.slice(fr); const p = rows.map(r => ({ PlazaName: (r[1] || '').toString().trim(), CashCollection: parseFloat((r[3] || '').toString().replace(/,/g, '')) || 0, HireCollection: parseFloat((r[4] || '').toString().replace(/,/g, '')) || 0, DealerCollection: parseFloat((r[6] || '').toString().replace(/,/g, '')) || 0, CorpCollection: parseFloat((r[7] || '').toString().replace(/,/g, '')) || 0, TotalCollection: parseFloat((r[9] || '').toString().replace(/,/g, '')) || 0 })).filter(d => d.PlazaName && d.PlazaName !== '' && d.PlazaName.toLowerCase() !== 'plaza name'); setYearlyCollAch2(p); saveCollAch2ToFirestore(p); }; r.readAsArrayBuffer(f); } }} style={{ display: 'none' }} />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Results */}
+          {yearlyTargetData.length > 0 && (() => {
+            const yearlyDivisions = [...new Set(yearlyTargetData.map(d => d.Division))];
+            const yearlyAreas = [...new Set(
+              yearlyTargetData
+                .filter(d => !yearlyTargetDivisionFilter || d.Division === yearlyTargetDivisionFilter)
+                .map(d => d.Area)
+            )];
+
+            const filteredYearlyTarget = yearlyTargetData.filter(t =>
+              (!yearlyTargetDivisionFilter || t.Division === yearlyTargetDivisionFilter) &&
+              (!yearlyTargetAreaFilter || t.Area === yearlyTargetAreaFilter)
+            );
+
+            const sourceAchData = yearlyAchievementData.length > 0 ? yearlyAchievementData : currentYearData;
+
+            // Helper: get collection ach from the two dedicated collection files
+            const getCollectionAch = (plazaName: string): number | null => {
+              let total = 0;
+              let hasData = false;
+              // Collection File 2: Cash (D) + Hire (E)
+              const row2 = yearlyCollAch2.find(r =>
+                r.PlazaName?.toString().trim().toLowerCase() === plazaName?.toString().trim().toLowerCase()
+              );
+              if (row2) {
+                total += (row2.CashCollection || 0) + (row2.HireCollection || 0);
+                hasData = true;
+              }
+              // Collection File 1: Dealer Collection Ach + Corp Collection Ach
+              const row1 = yearlyCollAch1.find(r =>
+                r.Plaza?.toString().trim().toLowerCase() === plazaName?.toString().trim().toLowerCase()
+              );
+              if (row1) {
+                total += (row1.DealerCollectionAch || 0) + (row1.CorpCollectionAch || 0);
+                hasData = true;
+              }
+              // Fallback to main ach data if neither file has data
+              if (!hasData) {
+                const achRow = sourceAchData.find(c =>
+                  c.Plaza?.toString().trim().toLowerCase() === plazaName?.toString().trim().toLowerCase()
+                );
+                if (achRow) return (achRow.Hire_DP_Ach || 0) + (achRow.Hire_LPR_Ach || 0) + (achRow.Dealer_Collection_Ach || 0) + (achRow.Corporate_Collection_Ach || 0);
+                return null;
+              }
+              return total;
+            };
+
+            // Match achievement from yearly achievement data (or fallback to current year data)
+            const enrichedYearly = filteredYearlyTarget.map(t => {
+              const achRow = sourceAchData.find(c =>
+                c.Plaza?.toString().trim().toLowerCase() === t.PlazaName?.toString().trim().toLowerCase()
+              );
+              const salesAch = achRow ? (achRow.Total_Ach || 0) : null;
+              const collectionAch = getCollectionAch(t.PlazaName);
+              const profitAch = achRow ? (achRow.Net_Profit_Ach || 0) : null;
+              return {
+                ...t,
+                salesAch,
+                collectionAch,
+                profitAch,
+                salesAchPct: (salesAch !== null && t.SalesTarget > 0) ? (salesAch / t.SalesTarget * 100) : null,
+                collectionAchPct: (collectionAch !== null && t.CollectionTarget > 0) ? (collectionAch / t.CollectionTarget * 100) : null,
+                profitAchPct: (profitAch !== null && t.NetProfitTarget > 0) ? (profitAch / t.NetProfitTarget * 100) : null,
+                profitMgrAchPct: (profitAch !== null && t.ProfitTargetManager > 0) ? (profitAch / t.ProfitTargetManager * 100) : null,
+                profitMgrPlus2AchPct: (profitAch !== null && t.ProfitTargetManagerPlus2 > 0) ? (profitAch / t.ProfitTargetManagerPlus2 * 100) : null,
+                profitAllAchPct: (profitAch !== null && t.ProfitTargetAllEmployee > 0) ? (profitAch / t.ProfitTargetAllEmployee * 100) : null,
+              };
+            });
+
+            // Include plazas from ach data with no matching yearly target row
+            const yearlyPlazaNames = new Set(filteredYearlyTarget.map(t => t.PlazaName?.toString().trim().toLowerCase()));
+            const currentYearFilteredYearly = sourceAchData.filter(c => {
+              const matchesDivision = !yearlyTargetDivisionFilter || c.Division === yearlyTargetDivisionFilter;
+              const matchesArea = !yearlyTargetAreaFilter || c.Area === yearlyTargetAreaFilter;
+              return matchesDivision && matchesArea;
+            });
+            const unmatchedYearlyCurrent = currentYearFilteredYearly.filter(c =>
+              !yearlyPlazaNames.has(c.Plaza?.toString().trim().toLowerCase())
+            ).map(c => {
+              const salesAch = c.Total_Ach || 0;
+              const collectionAch = getCollectionAch(c.Plaza) ?? ((c.Hire_DP_Ach || 0) + (c.Hire_LPR_Ach || 0) + (c.Dealer_Collection_Ach || 0) + (c.Corporate_Collection_Ach || 0));
+              const profitAch = c.Net_Profit_Ach || 0;
+              return {
+                Division: c.Division || '',
+                Area: c.Area || '',
+                PlazaName: c.Plaza || '',
+                SalesTarget: 0,
+                CollectionTarget: 0,
+                NetProfitTarget: 0,
+                ProfitTargetManager: 0,
+                ProfitTargetManagerPlus2: 0,
+                ProfitTargetAllEmployee: 0,
+                salesAch,
+                collectionAch,
+                profitAch,
+                salesAchPct: null as number | null,
+                collectionAchPct: null as number | null,
+                profitAchPct: null as number | null,
+                profitMgrAchPct: null as number | null,
+                profitMgrPlus2AchPct: null as number | null,
+                profitAllAchPct: null as number | null,
+              };
+            });
+
+            const allEnrichedYearly = [...enrichedYearly, ...unmatchedYearlyCurrent];
+
+            // Aggregations
+            const yearlyDivisionWise = Object.values(allEnrichedYearly.reduce((acc, row) => {
+              const div = row.Division || 'Unknown';
+              if (!acc[div]) {
+                acc[div] = { Division: div, SalesTarget: 0, CollectionTarget: 0, NetProfitTarget: 0, ProfitTargetManager: 0, ProfitTargetManagerPlus2: 0, ProfitTargetAllEmployee: 0, salesAch: 0, collectionAch: 0, profitAch: 0, plazaCount: 0 };
+              }
+              acc[div].SalesTarget += row.SalesTarget;
+              acc[div].CollectionTarget += row.CollectionTarget;
+              acc[div].NetProfitTarget += row.NetProfitTarget;
+              acc[div].ProfitTargetManager += row.ProfitTargetManager;
+              acc[div].ProfitTargetManagerPlus2 += row.ProfitTargetManagerPlus2;
+              acc[div].ProfitTargetAllEmployee += row.ProfitTargetAllEmployee;
+              acc[div].salesAch += row.salesAch || 0;
+              acc[div].collectionAch += row.collectionAch || 0;
+              acc[div].profitAch += row.profitAch || 0;
+              acc[div].plazaCount += 1;
+              return acc;
+            }, {} as Record<string, any>)).map((row: any) => ({
+              ...row,
+              salesAchPct: row.SalesTarget > 0 ? (row.salesAch / row.SalesTarget * 100) : null,
+              collectionAchPct: row.CollectionTarget > 0 ? (row.collectionAch / row.CollectionTarget * 100) : null,
+              profitAchPct: row.NetProfitTarget > 0 ? (row.profitAch / row.NetProfitTarget * 100) : null,
+              profitMgrAchPct: row.ProfitTargetManager > 0 ? (row.profitAch / row.ProfitTargetManager * 100) : null,
+              profitMgrPlus2AchPct: row.ProfitTargetManagerPlus2 > 0 ? (row.profitAch / row.ProfitTargetManagerPlus2 * 100) : null,
+              profitAllAchPct: row.ProfitTargetAllEmployee > 0 ? (row.profitAch / row.ProfitTargetAllEmployee * 100) : null,
+            }));
+
+            const yearlyAreaWise = Object.values(allEnrichedYearly.reduce((acc, row) => {
+              const key = `${row.Division}|${row.Area}`;
+              if (!acc[key]) {
+                acc[key] = { Division: row.Division || 'Unknown', Area: row.Area || 'Unknown', SalesTarget: 0, CollectionTarget: 0, NetProfitTarget: 0, ProfitTargetManager: 0, ProfitTargetManagerPlus2: 0, ProfitTargetAllEmployee: 0, salesAch: 0, collectionAch: 0, profitAch: 0, plazaCount: 0 };
+              }
+              acc[key].SalesTarget += row.SalesTarget;
+              acc[key].CollectionTarget += row.CollectionTarget;
+              acc[key].NetProfitTarget += row.NetProfitTarget;
+              acc[key].ProfitTargetManager += row.ProfitTargetManager;
+              acc[key].ProfitTargetManagerPlus2 += row.ProfitTargetManagerPlus2;
+              acc[key].ProfitTargetAllEmployee += row.ProfitTargetAllEmployee;
+              acc[key].salesAch += row.salesAch || 0;
+              acc[key].collectionAch += row.collectionAch || 0;
+              acc[key].profitAch += row.profitAch || 0;
+              acc[key].plazaCount += 1;
+              return acc;
+            }, {} as Record<string, any>)).map((row: any) => ({
+              ...row,
+              salesAchPct: row.SalesTarget > 0 ? (row.salesAch / row.SalesTarget * 100) : null,
+              collectionAchPct: row.CollectionTarget > 0 ? (row.collectionAch / row.CollectionTarget * 100) : null,
+              profitAchPct: row.NetProfitTarget > 0 ? (row.profitAch / row.NetProfitTarget * 100) : null,
+              profitMgrAchPct: row.ProfitTargetManager > 0 ? (row.profitAch / row.ProfitTargetManager * 100) : null,
+              profitMgrPlus2AchPct: row.ProfitTargetManagerPlus2 > 0 ? (row.profitAch / row.ProfitTargetManagerPlus2 * 100) : null,
+              profitAllAchPct: row.ProfitTargetAllEmployee > 0 ? (row.profitAch / row.ProfitTargetAllEmployee * 100) : null,
+            }));
+
+            // Totals
+            const yTotalSalesTarget = allEnrichedYearly.reduce((s, r) => s + r.SalesTarget, 0);
+            const yTotalCollectionTarget = allEnrichedYearly.reduce((s, r) => s + r.CollectionTarget, 0);
+            const yTotalNetProfitTarget = allEnrichedYearly.reduce((s, r) => s + r.NetProfitTarget, 0);
+            const yTotalProfitMgrTarget = allEnrichedYearly.reduce((s, r) => s + r.ProfitTargetManager, 0);
+            const yTotalProfitMgrPlus2Target = allEnrichedYearly.reduce((s, r) => s + r.ProfitTargetManagerPlus2, 0);
+            const yTotalProfitAllTarget = allEnrichedYearly.reduce((s, r) => s + r.ProfitTargetAllEmployee, 0);
+            const yTotalSalesAch = allEnrichedYearly.reduce((s, r) => s + (r.salesAch || 0), 0);
+            const yTotalCollectionAch = allEnrichedYearly.reduce((s, r) => s + (r.collectionAch || 0), 0);
+            const yTotalProfitAch = allEnrichedYearly.reduce((s, r) => s + (r.profitAch || 0), 0);
+
+            const achPctColor = (pct: number | null) => {
+              if (pct === null) return '#999';
+              if (pct >= 100) return '#28a745';
+              if (pct >= 80) return '#ff9800';
+              return '#dc3545';
+            };
+
+            // Sorting
+            const yrBaseRows = yearlyTargetViewMode === 'division' ? yearlyDivisionWise : yearlyTargetViewMode === 'area' ? yearlyAreaWise : allEnrichedYearly;
+            const sortedYearlyRows = (() => {
+              if (!yearlyTargetSortColumn) return yrBaseRows;
+              const dir = yearlyTargetSortDir === 'asc' ? 1 : -1;
+              const getVal = (row: any) => {
+                switch (yearlyTargetSortColumn) {
+                  case 'Division': return (row.Division || '').toString().toLowerCase();
+                  case 'Area': return (row.Area || '').toString().toLowerCase();
+                  case 'PlazaName': return (row.PlazaName || '').toString().toLowerCase();
+                  case 'plazaCount': return row.plazaCount ?? 0;
+                  case 'salesAch': return row.salesAch ?? -Infinity;
+                  case 'collectionAch': return row.collectionAch ?? -Infinity;
+                  case 'profitAch': return row.profitAch ?? -Infinity;
+                  case 'SalesTarget': return row.SalesTarget ?? 0;
+                  case 'CollectionTarget': return row.CollectionTarget ?? 0;
+                  case 'NetProfitTarget': return row.NetProfitTarget ?? 0;
+                  case 'ProfitTargetManager': return row.ProfitTargetManager ?? 0;
+                  case 'ProfitTargetManagerPlus2': return row.ProfitTargetManagerPlus2 ?? 0;
+                  case 'ProfitTargetAllEmployee': return row.ProfitTargetAllEmployee ?? 0;
+                  case 'salesAchPct': return row.salesAchPct ?? -Infinity;
+                  case 'collectionAchPct': return row.collectionAchPct ?? -Infinity;
+                  case 'profitAchPct': return row.profitAchPct ?? -Infinity;
+                  case 'profitMgrAchPct': return row.profitMgrAchPct ?? -Infinity;
+                  case 'profitMgrPlus2AchPct': return row.profitMgrPlus2AchPct ?? -Infinity;
+                  case 'profitAllAchPct': return row.profitAllAchPct ?? -Infinity;
+                  default: return 0;
+                }
+              };
+              return [...yrBaseRows].sort((a, b) => {
+                const va = getVal(a);
+                const vb = getVal(b);
+                if (typeof va === 'string' && typeof vb === 'string') {
+                  return va.localeCompare(vb) * dir;
+                }
+                return ((va as number) - (vb as number)) * dir;
+              });
+            })();
+
+            const handleYearlySort = (col: string) => {
+              if (yearlyTargetSortColumn === col) {
+                setYearlyTargetSortDir(yearlyTargetSortDir === 'asc' ? 'desc' : 'asc');
+              } else {
+                setYearlyTargetSortColumn(col);
+                setYearlyTargetSortDir('desc');
+              }
+            };
+
+            const yearlySortArrow = (col: string) => {
+              if (yearlyTargetSortColumn !== col) return <span style={{ opacity: 0.35, fontSize: '10px' }}> ⇅</span>;
+              return <span style={{ fontSize: '10px' }}>{yearlyTargetSortDir === 'asc' ? ' ▲' : ' ▼'}</span>;
+            };
+
+            return (
+              <>
+                {/* View Mode Toggle */}
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                  {(['division', 'area', 'plaza'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setYearlyTargetViewMode(mode)}
+                      style={{
+                        padding: '8px 20px',
+                        border: yearlyTargetViewMode === mode ? 'none' : '1px solid #ddd',
+                        background: yearlyTargetViewMode === mode ? 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)' : 'white',
+                        color: yearlyTargetViewMode === mode ? 'white' : '#666',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s ease',
+                        boxShadow: yearlyTargetViewMode === mode ? '0 2px 8px rgba(15,52,96,0.3)' : 'none'
+                      }}
+                    >
+                      {mode === 'division' ? '1. Division Wise Summary' : mode === 'area' ? '2. Area Wise Summary' : '3. Existing (Plaza Wise)'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Filters */}
+                <div className="filter-row" style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
+                  <select
+                    value={yearlyTargetDivisionFilter}
+                    onChange={e => { setYearlyTargetDivisionFilter(e.target.value); setYearlyTargetAreaFilter(''); }}
+                    style={{ padding: '10px 14px', minWidth: '180px', border: '2px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', background: 'white', cursor: 'pointer' }}
+                  >
+                    <option value="">All Divisions</option>
+                    {yearlyDivisions.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <select
+                    value={yearlyTargetAreaFilter}
+                    onChange={e => setYearlyTargetAreaFilter(e.target.value)}
+                    style={{ padding: '10px 14px', minWidth: '180px', border: '2px solid #e0e0e0', borderRadius: '6px', fontSize: '14px', background: 'white', cursor: 'pointer' }}
+                  >
+                    <option value="">All Areas</option>
+                    {yearlyAreas.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+
+                {/* Summary Cards */}
+                <div className="summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+                  {[
+                    { label: 'Total Sales Achievement', value: yTotalSalesAch.toLocaleString(), color: '#667eea', bg: '#f0f4ff', border: '#667eea' },
+                    { label: 'Sales Target Ach %', value: yTotalSalesTarget > 0 ? ((yTotalSalesAch / yTotalSalesTarget) * 100).toFixed(2) + '%' : 'N/A', color: achPctColor(yTotalSalesTarget > 0 ? (yTotalSalesAch / yTotalSalesTarget * 100) : null), bg: '#fff', border: '#1a1a2e' },
+                    { label: 'Collection Target Ach %', value: yTotalCollectionTarget > 0 ? ((yTotalCollectionAch / yTotalCollectionTarget) * 100).toFixed(2) + '%' : 'N/A', color: achPctColor(yTotalCollectionTarget > 0 ? (yTotalCollectionAch / yTotalCollectionTarget * 100) : null), bg: '#fff', border: '#0f3460' },
+                    { label: 'Net Profit Target Ach %', value: yTotalNetProfitTarget > 0 ? ((yTotalProfitAch / yTotalNetProfitTarget) * 100).toFixed(2) + '%' : 'N/A', color: achPctColor(yTotalNetProfitTarget > 0 ? (yTotalProfitAch / yTotalNetProfitTarget * 100) : null), bg: '#fff', border: '#e94560' },
+                    { label: 'Total Plazas', value: allEnrichedYearly.length.toString(), color: '#333', bg: '#f8f9fa', border: '#ddd' },
+                  ].map(card => (
+                    <div key={card.label} style={{ padding: '15px', background: card.bg, borderRadius: '8px', border: `1px solid ${card.border}` }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#666', fontSize: '12px' }}>{card.label}</h4>
+                      <p style={{ fontSize: '22px', fontWeight: 'bold', color: card.color, margin: 0 }}>{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Download Excel Button */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+                  <button
+                    onClick={() => {
+                      const rows = sortedYearlyRows.map((row: any) => {
+                        const obj: Record<string, any> = {};
+                        obj['Division'] = row.Division;
+                        if (yearlyTargetViewMode === 'area' || yearlyTargetViewMode === 'plaza') obj['Area'] = row.Area;
+                        if (yearlyTargetViewMode === 'plaza') obj['Plaza'] = row.PlazaName;
+                        if (yearlyTargetViewMode !== 'plaza') obj['Plaza Count'] = row.plazaCount;
+                        obj['Sales Target'] = row.SalesTarget ?? 0;
+                        obj['Sales Ach'] = row.salesAch ?? 0;
+                        obj['Sales Ach %'] = row.salesAchPct != null ? parseFloat(row.salesAchPct.toFixed(2)) : '';
+                        obj['Collection Target'] = row.CollectionTarget ?? 0;
+                        obj['Collection Ach'] = row.collectionAch ?? 0;
+                        obj['Collection Ach %'] = row.collectionAchPct != null ? parseFloat(row.collectionAchPct.toFixed(2)) : '';
+                        obj['Net Profit Target'] = row.NetProfitTarget ?? 0;
+                        obj['Net Profit Ach'] = row.profitAch ?? 0;
+                        obj['Net Profit Ach %'] = row.profitAchPct != null ? parseFloat(row.profitAchPct.toFixed(2)) : '';
+                        obj['Profit Target (Manager)'] = row.ProfitTargetManager ?? 0;
+                        obj['Profit Mgr Ach %'] = row.profitMgrAchPct != null ? parseFloat(row.profitMgrAchPct.toFixed(2)) : '';
+                        obj['Profit Target (Mgr+2)'] = row.ProfitTargetManagerPlus2 ?? 0;
+                        obj['Profit Mgr+2 Ach %'] = row.profitMgrPlus2AchPct != null ? parseFloat(row.profitMgrPlus2AchPct.toFixed(2)) : '';
+                        obj['Profit Target (All)'] = row.ProfitTargetAllEmployee ?? 0;
+                        obj['Profit All Ach %'] = row.profitAllAchPct != null ? parseFloat(row.profitAllAchPct.toFixed(2)) : '';
+                        return obj;
+                      });
+                      // Add total row
+                      const totalRow: Record<string, any> = {};
+                      totalRow['Division'] = 'TOTAL';
+                      if (yearlyTargetViewMode === 'area' || yearlyTargetViewMode === 'plaza') totalRow['Area'] = '';
+                      if (yearlyTargetViewMode === 'plaza') totalRow['Plaza'] = '';
+                      if (yearlyTargetViewMode !== 'plaza') totalRow['Plaza Count'] = allEnrichedYearly.length;
+                      totalRow['Sales Target'] = yTotalSalesTarget;
+                      totalRow['Sales Ach'] = yTotalSalesAch;
+                      totalRow['Sales Ach %'] = yTotalSalesTarget > 0 ? parseFloat(((yTotalSalesAch / yTotalSalesTarget) * 100).toFixed(2)) : '';
+                      totalRow['Collection Target'] = yTotalCollectionTarget;
+                      totalRow['Collection Ach'] = yTotalCollectionAch;
+                      totalRow['Collection Ach %'] = yTotalCollectionTarget > 0 ? parseFloat(((yTotalCollectionAch / yTotalCollectionTarget) * 100).toFixed(2)) : '';
+                      totalRow['Net Profit Target'] = yTotalNetProfitTarget;
+                      totalRow['Net Profit Ach'] = yTotalProfitAch;
+                      totalRow['Net Profit Ach %'] = yTotalNetProfitTarget > 0 ? parseFloat(((yTotalProfitAch / yTotalNetProfitTarget) * 100).toFixed(2)) : '';
+                      totalRow['Profit Target (Manager)'] = yTotalProfitMgrTarget;
+                      totalRow['Profit Mgr Ach %'] = yTotalProfitMgrTarget > 0 ? parseFloat(((yTotalProfitAch / yTotalProfitMgrTarget) * 100).toFixed(2)) : '';
+                      totalRow['Profit Target (Mgr+2)'] = yTotalProfitMgrPlus2Target;
+                      totalRow['Profit Mgr+2 Ach %'] = yTotalProfitMgrPlus2Target > 0 ? parseFloat(((yTotalProfitAch / yTotalProfitMgrPlus2Target) * 100).toFixed(2)) : '';
+                      totalRow['Profit Target (All)'] = yTotalProfitAllTarget;
+                      totalRow['Profit All Ach %'] = yTotalProfitAllTarget > 0 ? parseFloat(((yTotalProfitAch / yTotalProfitAllTarget) * 100).toFixed(2)) : '';
+                      rows.push(totalRow);
+                      const ws = XLSX.utils.json_to_sheet(rows);
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, 'YearlyAchievement');
+                      const vl = yearlyTargetViewMode === 'division' ? 'Division' : yearlyTargetViewMode === 'area' ? 'Area' : 'Plaza';
+                      XLSX.writeFile(wb, `Yearly_Target_Achievement_${vl}.xlsx`);
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)',
+                      color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                      fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px',
+                      boxShadow: '0 2px 8px rgba(15,52,96,0.3)'
+                    }}
+                  >
+                    Download Excel
+                  </button>
+                </div>
+
+                {/* Table */}
+                <div className="table-scroll" style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        <th onClick={() => handleYearlySort('Division')} style={{ padding: '12px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}>Division{yearlySortArrow('Division')}</th>
+                        {(yearlyTargetViewMode === 'area' || yearlyTargetViewMode === 'plaza') && <th onClick={() => handleYearlySort('Area')} style={{ padding: '12px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}>Area{yearlySortArrow('Area')}</th>}
+                        {yearlyTargetViewMode === 'plaza' && <th onClick={() => handleYearlySort('PlazaName')} style={{ padding: '12px 10px', textAlign: 'left', cursor: 'pointer', userSelect: 'none' }}>Plaza{yearlySortArrow('PlazaName')}</th>}
+                        {yearlyTargetViewMode !== 'plaza' && <th onClick={() => handleYearlySort('plazaCount')} style={{ padding: '12px 10px', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}>Plaza Count{yearlySortArrow('plazaCount')}</th>}
+                        <th onClick={() => handleYearlySort('SalesTarget')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Sales Target{yearlySortArrow('SalesTarget')}</th>
+                        <th onClick={() => handleYearlySort('salesAch')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Sales Ach{yearlySortArrow('salesAch')}</th>
+                        <th onClick={() => handleYearlySort('salesAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Sales Ach %{yearlySortArrow('salesAchPct')}</th>
+                        <th onClick={() => handleYearlySort('CollectionTarget')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Collection Target{yearlySortArrow('CollectionTarget')}</th>
+                        <th onClick={() => handleYearlySort('collectionAch')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Collection Ach{yearlySortArrow('collectionAch')}</th>
+                        <th onClick={() => handleYearlySort('collectionAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Collection Ach %{yearlySortArrow('collectionAchPct')}</th>
+                        <th onClick={() => handleYearlySort('NetProfitTarget')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Net Profit Target{yearlySortArrow('NetProfitTarget')}</th>
+                        <th onClick={() => handleYearlySort('profitAch')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Net Profit Ach{yearlySortArrow('profitAch')}</th>
+                        <th onClick={() => handleYearlySort('profitAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Net Profit Ach %{yearlySortArrow('profitAchPct')}</th>
+                        <th onClick={() => handleYearlySort('ProfitTargetManager')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Profit Target (Manager){yearlySortArrow('ProfitTargetManager')}</th>
+                        <th onClick={() => handleYearlySort('profitMgrAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Profit Mgr Ach %{yearlySortArrow('profitMgrAchPct')}</th>
+                        <th onClick={() => handleYearlySort('ProfitTargetManagerPlus2')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Profit Target (Mgr+2){yearlySortArrow('ProfitTargetManagerPlus2')}</th>
+                        <th onClick={() => handleYearlySort('profitMgrPlus2AchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Profit Mgr+2 Ach %{yearlySortArrow('profitMgrPlus2AchPct')}</th>
+                        <th onClick={() => handleYearlySort('ProfitTargetAllEmployee')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Profit Target (All){yearlySortArrow('ProfitTargetAllEmployee')}</th>
+                        <th onClick={() => handleYearlySort('profitAllAchPct')} style={{ padding: '12px 10px', textAlign: 'right', cursor: 'pointer', userSelect: 'none' }}>Profit All Ach %{yearlySortArrow('profitAllAchPct')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedYearlyRows.map((row: any, idx: number) => (
+                        <tr key={idx} style={{ background: idx % 2 === 0 ? 'white' : '#f8f9fa', borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '10px', fontWeight: yearlyTargetViewMode === 'division' ? 'bold' : 'normal' }}>{row.Division}</td>
+                          {(yearlyTargetViewMode === 'area' || yearlyTargetViewMode === 'plaza') && <td style={{ padding: '10px', fontWeight: yearlyTargetViewMode === 'area' ? 'bold' : 'normal' }}>{row.Area}</td>}
+                          {yearlyTargetViewMode === 'plaza' && <td style={{ padding: '10px', fontWeight: '500' }}>{row.PlazaName}</td>}
+                          {yearlyTargetViewMode !== 'plaza' && <td style={{ padding: '10px', textAlign: 'center', color: '#666' }}>{row.plazaCount}</td>}
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{row.SalesTarget ? row.SalesTarget.toLocaleString() : 0}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: '500' }}>{row.salesAch !== null ? row.salesAch.toLocaleString() : <span style={{ color: '#999' }}>—</span>}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: achPctColor(row.salesAchPct) }}>
+                            {row.salesAchPct !== null ? row.salesAchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{row.CollectionTarget ? row.CollectionTarget.toLocaleString() : 0}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: '500' }}>{row.collectionAch !== null ? row.collectionAch.toLocaleString() : <span style={{ color: '#999' }}>—</span>}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: achPctColor(row.collectionAchPct) }}>
+                            {row.collectionAchPct !== null ? row.collectionAchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{row.NetProfitTarget ? row.NetProfitTarget.toLocaleString() : 0}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: '600', color: row.profitAch !== null ? (row.profitAch >= 0 ? '#28a745' : '#dc3545') : '#999' }}>
+                            {row.profitAch !== null ? (row.profitAch >= 0 ? '+' : '') + row.profitAch.toLocaleString() : '—'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: achPctColor(row.profitAchPct) }}>
+                            {row.profitAchPct !== null ? row.profitAchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{row.ProfitTargetManager ? row.ProfitTargetManager.toLocaleString() : 0}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: achPctColor(row.profitMgrAchPct) }}>
+                            {row.profitMgrAchPct !== null ? row.profitMgrAchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{row.ProfitTargetManagerPlus2 ? row.ProfitTargetManagerPlus2.toLocaleString() : 0}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: achPctColor(row.profitMgrPlus2AchPct) }}>
+                            {row.profitMgrPlus2AchPct !== null ? row.profitMgrPlus2AchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{row.ProfitTargetAllEmployee ? row.ProfitTargetAllEmployee.toLocaleString() : 0}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: achPctColor(row.profitAllAchPct) }}>
+                            {row.profitAllAchPct !== null ? row.profitAllAchPct.toFixed(2) + '%' : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Total row */}
+                      <tr style={{ background: '#1a1a2e', color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
+                        <td colSpan={yearlyTargetViewMode === 'division' ? 2 : yearlyTargetViewMode === 'area' ? 3 : 3} style={{ padding: '12px 10px' }}>TOTAL</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalSalesTarget.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalSalesAch.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: yTotalSalesTarget > 0 ? ((yTotalSalesAch / yTotalSalesTarget * 100) >= 100 ? '#4ade80' : '#f87171') : 'inherit' }}>
+                          {yTotalSalesTarget > 0 ? (yTotalSalesAch / yTotalSalesTarget * 100).toFixed(2) + '%' : '—'}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalCollectionTarget.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalCollectionAch.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: yTotalCollectionTarget > 0 ? ((yTotalCollectionAch / yTotalCollectionTarget * 100) >= 100 ? '#4ade80' : '#f87171') : 'inherit' }}>
+                          {yTotalCollectionTarget > 0 ? (yTotalCollectionAch / yTotalCollectionTarget * 100).toFixed(2) + '%' : '—'}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalNetProfitTarget.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: yTotalProfitAch >= 0 ? '#4ade80' : '#f87171' }}>
+                          {(yTotalProfitAch >= 0 ? '+' : '') + yTotalProfitAch.toLocaleString()}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: yTotalNetProfitTarget > 0 ? ((yTotalProfitAch / yTotalNetProfitTarget * 100) >= 100 ? '#4ade80' : '#f87171') : 'inherit' }}>
+                          {yTotalNetProfitTarget > 0 ? (yTotalProfitAch / yTotalNetProfitTarget * 100).toFixed(2) + '%' : '—'}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalProfitMgrTarget.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: yTotalProfitMgrTarget > 0 ? ((yTotalProfitAch / yTotalProfitMgrTarget * 100) >= 100 ? '#4ade80' : '#f87171') : 'inherit' }}>
+                          {yTotalProfitMgrTarget > 0 ? (yTotalProfitAch / yTotalProfitMgrTarget * 100).toFixed(2) + '%' : '—'}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalProfitMgrPlus2Target.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: yTotalProfitMgrPlus2Target > 0 ? ((yTotalProfitAch / yTotalProfitMgrPlus2Target * 100) >= 100 ? '#4ade80' : '#f87171') : 'inherit' }}>
+                          {yTotalProfitMgrPlus2Target > 0 ? (yTotalProfitAch / yTotalProfitMgrPlus2Target * 100).toFixed(2) + '%' : '—'}
+                        </td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right' }}>{yTotalProfitAllTarget.toLocaleString()}</td>
+                        <td style={{ padding: '12px 10px', textAlign: 'right', color: yTotalProfitAllTarget > 0 ? ((yTotalProfitAch / yTotalProfitAllTarget * 100) >= 100 ? '#4ade80' : '#f87171') : 'inherit' }}>
+                          {yTotalProfitAllTarget > 0 ? (yTotalProfitAch / yTotalProfitAllTarget * 100).toFixed(2) + '%' : '—'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Note if ACH data is missing */}
+                {sourceAchData.length === 0 && (
+                  <div style={{ marginTop: '15px', padding: '12px 16px', background: '#fff3cd', borderRadius: '8px', border: '1px solid #ffc107', color: '#856404', fontSize: '13px' }}>
+                    <strong>Note:</strong> Achievement data is not loaded yet. Please upload the yearly achievement file above to see achievement figures.
+                  </div>
+                )}
+                {yearlyAchievementData.length === 0 && currentYearData.length > 0 && (
+                  <div style={{ marginTop: '15px', padding: '12px 16px', background: '#e8f4fd', borderRadius: '8px', border: '1px solid #b8d4fe', color: '#0c5460', fontSize: '13px' }}>
+                    <strong>Note:</strong> Using achievement data from the ACH Growth Comparison section. Upload a separate yearly achievement file above for dedicated yearly data.
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </div>
+      )}
+      </div>
+      {/* ===== END YEARLY TARGET ACHIEVEMENT SECTION ===== */}
 
       {/* ===== RANKING ANALYSIS SECTION ===== */}
       {currentYearData.length > 0 && (() => {
